@@ -6,18 +6,25 @@
   <meta name="renderer" content="webkit">
   <meta http-equiv="X-UA-Compatible" content="IE=edge" >
   <link rel="dns-prefetch" href="http://yoursite.com">
-  <title>JVM 简介 | Bamboo&#39;s Blog</title>
+  <title>思考的乐趣-读书笔记 | Bamboo&#39;s Blog</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta name="description" content="前言为了达到给所有硬件提供一致的虚拟机平台的目的，jvm牺牲了一些与硬件相关的性能特性。 第一章 走进java 2006年，Sun公式宣布最终会将java开源，并建立了OpenJDK组织源码进行独立管理。除了极少数产权代码（Sun本身也无权进行开源处理）外，OpenJDK几乎包括了Sun JDK的全部代码。所以OpenJDK 7 与 Sun JDK 1.7本质史昂就是同一套代码库开发的产品  历史">
+  <meta name="description" content="1. 概率论教你说谎贝叶斯定理 直观意义：当你获知了一个新的信息后，你对原事件的看法所做的改变   贝叶斯应用 P(A) : M同学在外通宵修炼概率 P(B) : M同学手中有电影票概率 P(A|B) : 当M同学手中的电影票被发现后，他在外通宵概率 P(B|A) : 若昨晚M在外通宵，他手中有电影票概率若要降低P(A|B)的概率   增加P(B) : 养成保存电影票习惯 减小P(A) : 少在外">
 <meta property="og:type" content="article">
-<meta property="og:title" content="JVM 简介">
-<meta property="og:url" content="http://yoursite.com/2017/05/03/jvm/index.html">
+<meta property="og:title" content="思考的乐趣-读书笔记">
+<meta property="og:url" content="http://yoursite.com/2017/05/04/THINKING-OF-FUN_reading_notes/index.html">
 <meta property="og:site_name" content="Bamboo&#39;s Blog">
-<meta property="og:description" content="前言为了达到给所有硬件提供一致的虚拟机平台的目的，jvm牺牲了一些与硬件相关的性能特性。 第一章 走进java 2006年，Sun公式宣布最终会将java开源，并建立了OpenJDK组织源码进行独立管理。除了极少数产权代码（Sun本身也无权进行开源处理）外，OpenJDK几乎包括了Sun JDK的全部代码。所以OpenJDK 7 与 Sun JDK 1.7本质史昂就是同一套代码库开发的产品  历史">
-<meta property="og:updated_time" content="2017-05-02T16:35:26.000Z">
+<meta property="og:description" content="1. 概率论教你说谎贝叶斯定理 直观意义：当你获知了一个新的信息后，你对原事件的看法所做的改变   贝叶斯应用 P(A) : M同学在外通宵修炼概率 P(B) : M同学手中有电影票概率 P(A|B) : 当M同学手中的电影票被发现后，他在外通宵概率 P(B|A) : 若昨晚M在外通宵，他手中有电影票概率若要降低P(A|B)的概率   增加P(B) : 养成保存电影票习惯 减小P(A) : 少在外">
+<meta property="og:image" content="http://chart.googleapis.com/chart?cht=tx&chl=P(A|B)=\frac{P(B|A)*P(A)}{P(B)}">
+<meta property="og:image" content="http://chart.googleapis.com/chart?cht=tx&chl=$$\frac{8-n}{10-n}$$">
+<meta property="og:image" content="http://chart.googleapis.com/chart?cht=tx&chl=1-\frac{2}{10-n}">
+<meta property="og:image" content="http://chart.googleapis.com/chart?cht=tx&chl=1-\frac{4}{5}*\frac{n}{8}">
+<meta property="og:image" content="http://chart.googleapis.com/chart?cht=tx&chl=P(B)=\frac{4}{5}*\frac{8-n}{8}">
+<meta property="og:image" content="http://chart.googleapis.com/chart?cht=tx&chl=P(B|A)=\frac{P(A|B)*P(B)}{P(A)}=\frac{8-n}{10-n}">
+<meta property="og:updated_time" content="2017-05-04T13:26:52.000Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="JVM 简介">
-<meta name="twitter:description" content="前言为了达到给所有硬件提供一致的虚拟机平台的目的，jvm牺牲了一些与硬件相关的性能特性。 第一章 走进java 2006年，Sun公式宣布最终会将java开源，并建立了OpenJDK组织源码进行独立管理。除了极少数产权代码（Sun本身也无权进行开源处理）外，OpenJDK几乎包括了Sun JDK的全部代码。所以OpenJDK 7 与 Sun JDK 1.7本质史昂就是同一套代码库开发的产品  历史">
+<meta name="twitter:title" content="思考的乐趣-读书笔记">
+<meta name="twitter:description" content="1. 概率论教你说谎贝叶斯定理 直观意义：当你获知了一个新的信息后，你对原事件的看法所做的改变   贝叶斯应用 P(A) : M同学在外通宵修炼概率 P(B) : M同学手中有电影票概率 P(A|B) : 当M同学手中的电影票被发现后，他在外通宵概率 P(B|A) : 若昨晚M在外通宵，他手中有电影票概率若要降低P(A|B)的概率   增加P(B) : 养成保存电影票习惯 减小P(A) : 少在外">
+<meta name="twitter:image" content="http://chart.googleapis.com/chart?cht=tx&chl=P(A|B)=\frac{P(B|A)*P(A)}{P(B)}">
   
     <link rel="alternative" href="/atom.xml" title="Bamboo&#39;s Blog" type="application/atom+xml">
   
@@ -60,8 +67,6 @@
 			
 				<li><a href="/">主页</a></li>
 	        
-				<li><a href="/tags/随笔/">随笔</a></li>
-	        
 			</ul>
 		</nav>
 		<nav class="header-smart-menu">
@@ -86,9 +91,7 @@
 		        
 					<a class="weibo" target="_blank" href="http://weibo.com/u/1691787821" title="weibo"><i class="icon-weibo"></i></a>
 		        
-					<a class="rss" target="_blank" href="#" title="rss"><i class="icon-rss"></i></a>
-		        
-					<a class="zhihu" target="_blank" href="#" title="zhihu"><i class="icon-zhihu"></i></a>
+					<a class="jianshu" target="_blank" href="http://www.jianshu.com/u/249ea85058ec" title="jianshu"><i class="icon-jianshu"></i></a>
 		        
 			</div>
 		</nav>
@@ -118,8 +121,6 @@
 			
 				
 			
-				
-			
 			
 			
 			<nav class="header-nav">
@@ -129,9 +130,7 @@
 			        
 						<a class="weibo" target="_blank" href="http://weibo.com/u/1691787821" title="weibo"><i class="icon-weibo"></i></a>
 			        
-						<a class="rss" target="_blank" href="#" title="rss"><i class="icon-rss"></i></a>
-			        
-						<a class="zhihu" target="_blank" href="#" title="zhihu"><i class="icon-zhihu"></i></a>
+						<a class="jianshu" target="_blank" href="http://www.jianshu.com/u/249ea85058ec" title="jianshu"><i class="icon-jianshu"></i></a>
 			        
 				</div>
 			</nav>
@@ -140,9 +139,7 @@
 				<ul style="width: 50%">
 				
 				
-					<li style="width: 50%"><a href="/">主页</a></li>
-		        
-					<li style="width: 50%"><a href="/tags/随笔/">随笔</a></li>
+					<li style="width: 100%"><a href="/">主页</a></li>
 		        
 				</ul>
 			</nav>
@@ -157,239 +154,185 @@
             <canvas data-colors="#eaeaea" data-sectionHeight="100" data-contentId="js-content" id="myCanvas1" class="anm-canvas"></canvas>
           </div>
           <div id="js-content" class="content-ll">
-            <article id="post-jvm" class="article article-type-post " itemscope itemprop="blogPost">
+            <article id="post-THINKING-OF-FUN_reading_notes" class="article article-type-post " itemscope itemprop="blogPost">
   <div class="article-inner">
     
       <header class="article-header">
         
   
     <h1 class="article-title" itemprop="name">
-      JVM 简介
+      思考的乐趣-读书笔记
     </h1>
   
 
         
-        <a href="/2017/05/03/jvm/" class="archive-article-date">
-  	<time datetime="2017-05-02T16:35:26.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2017-05-03</time>
+        <a href="/2017/05/04/THINKING-OF-FUN_reading_notes/" class="archive-article-date">
+  	<time datetime="2017-05-04T13:26:52.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2017-05-04</time>
 </a>
         
       </header>
     
     <div class="article-entry" itemprop="articleBody">
       
-        <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>为了达到给所有硬件提供一致的虚拟机平台的目的，jvm牺牲了一些与硬件相关的性能特性。</p>
-<h1 id="第一章-走进java"><a href="#第一章-走进java" class="headerlink" title="第一章 走进java"></a>第一章 走进java</h1><blockquote>
-<p>2006年，Sun公式宣布最终会将java开源，并建立了OpenJDK组织源码进行独立管理。<br>除了极少数产权代码（Sun本身也无权进行开源处理）外，OpenJDK几乎包括了Sun JDK的全部代码。<br>所以OpenJDK 7 与 Sun JDK 1.7本质史昂就是同一套代码库开发的产品</p>
+        <h1 id="1-概率论教你说谎"><a href="#1-概率论教你说谎" class="headerlink" title="1. 概率论教你说谎"></a>1. 概率论教你说谎</h1><h3 id="贝叶斯定理"><a href="#贝叶斯定理" class="headerlink" title="贝叶斯定理"></a>贝叶斯定理</h3><blockquote>
+<p>直观意义：当你获知了一个新的信息后，你对原事件的看法所做的改变</p>
 </blockquote>
-<h3 id="历史"><a href="#历史" class="headerlink" title="历史"></a>历史</h3><ol>
-<li><p>1996年，sun发布jdk1.0，该jdk中所带的虚拟机就是Classic VM. 这款虚拟机采用纯解释权方式来执行java代码，若用jit编译器，就必须外挂。使用外挂jit编译器后，解释器便不再工作。<br>若用解释器，解释器的性能本来就比较慢。<br>若用编译器，编译器需要对每一行代码都进行编译，由于程序相应时间的压力，不敢应用编译耗时较高的优化技术。<br>由此，“java语言很慢”的形象产生</p>
-</li>
-<li><p>jdk 1.2时，在Solaris平台发布了Exact VM.<br>使用了准确式内存管理（虚拟机可以知道内存中某个位置的数据具体是什么类型）。<br>之前Class VM基于handler（句柄）的对象查找方式，每次定位对象多了一次查找开销</p>
-</li>
-<li><p>HotSpot VM：准确式内存管理，热点代码探测技术<br>Sun JDK，Open JDK都是使用HotSpot VM</p>
-</li>
-<li><p>Dalvik VM，即android上使用的jvm。<br>严格来说，Dalvik VM不是一个java虚拟机；<br>它没有遵循java虚拟机规范，不能直接执行java的class文件;<br>使用的是寄存器架构而不是jvm中常用的栈架构</p>
-</li>
-<li><p>Microsoft JVM<br>微软曾是java技术铁杆支持者，与sun争夺java控制权，令java从跨平台技术变为绑定在windows上的技术是ms的主要目的。<br>sun起诉微软，微软最终败诉，赔偿sun公司2000万，承诺终止其jvm发展。<br>有趣的是，xp sp3完全抹去了jvm，sun又登报希望微软不要这么做</p>
-</li>
-</ol>
-<h3 id="未来"><a href="#未来" class="headerlink" title="未来"></a>未来</h3><ul>
-<li>模块化</li>
-<li>混合语言（java平台上多语言很合编程正成为主流）</li>
-<li>多核并行（函数式）</li>
-<li>进一步丰富语法</li>
-<li>64位虚拟机</li>
+<p><img src="http://chart.googleapis.com/chart?cht=tx&chl=P(A|B)=\frac{P(B|A)*P(A)}{P(B)}" style="border:none;"></p>
+<h3 id="贝叶斯应用"><a href="#贝叶斯应用" class="headerlink" title="贝叶斯应用"></a>贝叶斯应用</h3><ul>
+<li>P(A) : M同学在外通宵修炼概率</li>
+<li>P(B) : M同学手中有电影票概率</li>
+<li>P(A|B) : 当M同学手中的电影票被发现后，他在外通宵概率</li>
+<li>P(B|A) : 若昨晚M在外通宵，他手中有电影票概率<br>若要降低P(A|B)的概率</li>
 </ul>
-<p>由于指针膨胀和各种数据类型对齐补白的原因，运行在64位系统上的java应用，通常比32位系统额外增加10% - 30%的内存消耗；<br>多个机构测试显示，64为虚拟机运行速度在各个测试项中几乎全面落后32位虚拟机，两者大约15%左右的性能差距。<br>32位有个严重的限制：内存不超过4GB；<br>因此，很多企业使用虚拟机集群等方式继续在32位系统中运行。</p>
-<p>计算机最终会完全过渡到64位，jvm也会从32位发展至64位</p>
-<h3 id="其他"><a href="#其他" class="headerlink" title="其他"></a>其他</h3><p>函数式编程的一个重要优点：程序天然地适合并行运行</p>
-<h1 id="第二章-java内存区域与内存溢出异常"><a href="#第二章-java内存区域与内存溢出异常" class="headerlink" title="第二章 java内存区域与内存溢出异常"></a>第二章 java内存区域与内存溢出异常</h1><h2 id="运行时数据区"><a href="#运行时数据区" class="headerlink" title="运行时数据区"></a>运行时数据区</h2><ul>
-<li>方法区</li>
-<li>堆</li>
-<li>虚拟机栈</li>
-<li>本地方法栈</li>
-<li>程序计数器PC</li>
-</ul>
-<p>方法区，堆 ：线程共享<br>栈，pc ： 线程私有<br>本地方法栈中方式使用的语言，使用方式，数据结构并未强制规定，jvm可以自由实现它。（Sun HotSpot 直接把本地方法栈和虚拟机栈合二为一）</p>
-<h3 id="程序计数器"><a href="#程序计数器" class="headerlink" title="程序计数器"></a>程序计数器</h3><p>每个线程都有一个独立了的PC，<br>若正在执行java方法，则PC记录的是正在执行的虚拟机字节码指令地址；<br>若正在执行native方法，则PC值为空。<br>此内存区域是唯一一个在jvm中不可能发生OutOfMemoryError的区域</p>
-<h3 id="java虚拟机栈"><a href="#java虚拟机栈" class="headerlink" title="java虚拟机栈"></a>java虚拟机栈</h3><p>栈中包括了局部变量表<br>局部变量表存放了编译器可知的各种基本数据类型，对象引用，returnAddress类型</p>
-<h3 id="本地方法栈"><a href="#本地方法栈" class="headerlink" title="本地方法栈"></a>本地方法栈</h3><p>native 方法</p>
-<h3 id="java堆"><a href="#java堆" class="headerlink" title="java堆"></a>java堆</h3><p>jvm所管理内存中最大的一块.</p>
-<p>堆的唯一目的: 存放对象实例，几乎所有的对象实例都在这里分配内存（jvm规范说，所有的对象实例以及数组都要在堆上分配，但随着jit的发展，栈上分配，标量替换等优化技术，打破了这个限制）</p>
-<p>从内存分配角度看，线程共享的java堆中可能划分出多个线程私有的分配缓冲区（Thread Local Allocation Buffer, TLAB）</p>
-<p>从内存回收角度，java堆还可以细分</p>
-<ul>
-<li>新生代（eden， from， to）</li>
-<li>老年代</li>
-</ul>
-<p>不论如何划分，都与存放内容无关\<br>无论哪个区域，存储的都仍然是对象实例</p>
-<p>java堆可以位于物理上不连续的内存空间，只要逻辑上连续即可</p>
-<h3 id="方法区"><a href="#方法区" class="headerlink" title="方法区"></a>方法区</h3><p>存储虚拟机加载的类信息，常量，静态变量，jit编译后的代码等数据</p>
-<p>习惯上，称作“永久代”，但并不等价。<br>HotSpot把gc分代扩展至方法区，或者说使用永久代来实现方法区。<br>对其它JVM，并不存在永久代的概念</p>
-<p>如何实现方法区，不收虚拟机规范约束，用永久代来实现，不是个好主意，永久代很容易内存溢出</p>
-<p>方法区主要是针对常量池的回收和对类型的卸载。该区域回收性能较差，尤其是对类型的卸载，条件相当苛刻</p>
-<h3 id="运行时常量池"><a href="#运行时常量池" class="headerlink" title="运行时常量池"></a>运行时常量池</h3><p>方法区的一部分。</p>
-<p>class文件中，包含了常量池信息，用于存放编译器生成的各种字面量和符号引用，这部分内容在类加载后进入方法区的运行时常量池中存放。</p>
-<p>常量池中的内容：编译器产生，也可能运行期产生</p>
-<h3 id="直接内存"><a href="#直接内存" class="headerlink" title="直接内存"></a>直接内存</h3><p>并不是虚拟机的一部分，收到本机总内存（RAM+swap）空间的限制。</p>
-<h3 id="其他-1"><a href="#其他-1" class="headerlink" title="其他"></a>其他</h3><p>StackOverflowError</p>
-<ul>
-<li>线程请求的栈深度大于虚拟机所允许的深度</li>
-</ul>
-<p>OutOfMemoryError</p>
-<ul>
-<li>虚拟机栈扩展时，无法申请到足够的内存</li>
-<li>对中没有内存完成实例分配，并且堆也无法再扩展</li>
-<li>方法区无法满足内存分配需求</li>
-</ul>
-<h2 id="hotspot虚拟机对象"><a href="#hotspot虚拟机对象" class="headerlink" title="hotspot虚拟机对象"></a>hotspot虚拟机对象</h2><h3 id="对象创建"><a href="#对象创建" class="headerlink" title="对象创建"></a>对象创建</h3><p>虚拟机遇到new指令时，检查该指令的参数能否在常量池中定位到一个类的符号引用，并检查这个符号引用的类是否已被加载，解析和初始化过。若没有，则先执行相应的类加载过程。</p>
-<p>类加载检查通过后，将为新生对象分配内存。</p>
-<p>对象所需内存大小在类加载完成后便可完全确定。</p>
-<p>若java堆中内存是规整的，使用“指针碰撞”方式为对象分配内存空间；若不是，使用“空闲列表的”内存分配方式。<br>堆是否规整，由其采用的垃圾回收算法决定。</p>
-<h5 id="多线程问题"><a href="#多线程问题" class="headerlink" title="多线程问题"></a>多线程问题</h5><p>给A分配内存，指针未来得及修改，对象B又同时使用了原来的指针来分配内存。解决这个问题有两种方案：</p>
-<ul>
-<li>分配内存空间的动作进行同步处理。（虚拟机使用CAS配上失败重试的方式保证更新操作的原子性）</li>
-<li>把内存分配的动作按照线程划分在不同的空间之中进行。即内个线程在java堆中预先分配一小块内存（本地线程分配缓冲TLAB）。</li>
-<li>通过-XX+/-UseTLAB来设定是否使用TLAB</li>
-</ul>
-<p>内存分配完成后，虚拟机需要将分配到的内存空间都初始化为零值（不包括对象头）。<br>这一步操作保证了java代码中可以不赋初始值就可直接使用。</p>
-<p>接下来，虚拟机要对对象进行必要的设置，（对象是哪个类的实例，如何找到类的元数据信息，对象哈希码，对象的GC分代年龄等信息），这些信息存储在对象头之中。</p>
-<p>从虚拟机角度来讲，此时对象就产生了。从java程序视角看，对象创建才刚刚开始<init>方法还没有执行。<br>执行new指令后，会执行init方法，按照程序员的意愿初始化对象。此时，创建对象完成。</init></p>
-<h3 id="对象内存布局"><a href="#对象内存布局" class="headerlink" title="对象内存布局"></a>对象内存布局</h3><ul>
-<li>对象头</li>
-<li>实例数据</li>
-<li>对齐填充</li>
-</ul>
-<p>对象头：</p>
-<ul>
-<li>对象运行时数据：哈希码，gc分代年龄，锁状态标志，线程持有的锁，偏向线程id，，偏向时间戳等。<br>32bit或64bit，官方称作“Mark Word”</li>
-<li>类型指针，指向类元数据的指针。虚拟机通过此指针确定对象是哪个类的实例。</li>
-</ul>
-<p>实例数据：</p>
-<ul>
-<li>对象真正存储的有效信息</li>
-<li>从父类继承的，子类定义的。都会记录下来。</li>
-<li>存储顺序受到虚拟机分配策略参数和字段在java源码中定义顺序的影响</li>
-<li>hotspot默认分配策略：longs/doubles、ints、shorts、chars、bytes、booleans、oops（ordinary object pointers），相同宽带的字段总是分配到一起。在满足此前提的情况下，父类中的变量会出现在子类之前。</li>
-<li>若CompactFields参数设为true，默认为true，则子类中较窄的变量也可能会插入到父类变量的空隙之中。</li>
-</ul>
-<p>对齐填充</p>
-<ul>
-<li>仅起到占位符的作用。hotspot要求对象qi’shi起始地址必须是8字节的整数倍。即对象大小必须是8的整数倍。</li>
-</ul>
-<h3 id="对象的访问定位"><a href="#对象的访问定位" class="headerlink" title="对象的访问定位"></a>对象的访问定位</h3><ul>
-<li>句柄</li>
-<li>直接指针（hotspot使用的方式）</li>
-</ul>
-<p>句柄：</p>
-<ul>
-<li>java堆中需要划分一块内存来作为句柄池。</li>
-<li>对象指针reference中存储的是对象句柄地址</li>
-<li>句柄中包含对象实例数据与类型数据两个地址</li>
-<li>对象移动时，只改变句柄中的实例数据指针，reference本身不需要修改</li>
-</ul>
-<p>直接指针：</p>
-<ul>
-<li>reference存储的是对象的真实地址</li>
-<li>java堆对象中需要考虑放置类型数据的相关信息</li>
-<li>速度更快，节省了一次指针定位开销。由于对象访问非常频繁，这类开销也不小</li>
-</ul>
-<h2 id="其他-2"><a href="#其他-2" class="headerlink" title="其他"></a>其他</h2><p>EMA：eclipse memory analyzer：分析dump出的堆转储快照</p>
-<p>String.intern()<br>jdk1.6及以前，该方法会将首次遇到的字符串复制到永久代中，返回的也是永久代中这个字符串实例的引用。<br>jdk1.7以后，不会再复制实例，只是在常量池中记录首次出现的实例引用</p>
-<h1 id="第三章-垃圾收集器与内存分配策略"><a href="#第三章-垃圾收集器与内存分配策略" class="headerlink" title="第三章 垃圾收集器与内存分配策略"></a>第三章 垃圾收集器与内存分配策略</h1><p>程序计数器，虚拟机栈，本地方法栈：随线程生，随线程灭。<br>这些区域不需要过多考虑回收问题。</p>
-<p>垃圾收集器主要关注的是堆和方法区。</p>
-<h3 id="对象存活检测算法"><a href="#对象存活检测算法" class="headerlink" title="对象存活检测算法"></a>对象存活检测算法</h3><ul>
-<li>引用计数 ：无法解决循环引用问题</li>
-<li>可达性分析算法：以gc roots的对象作为起始点，向下搜索。</li>
-</ul>
-<p>GC roots：</p>
-<ul>
-<li>虚拟机栈</li>
-<li>方法区中静态属性引用的对象</li>
-<li>方法区中常量引用的对象</li>
-<li>本地方法栈中JNI引用的对象</li>
-</ul>
-<p>引用分类：</p>
-<ul>
-<li>强引用，默认。引用存在时，不会回收</li>
-<li>软引用。描述还有用但是非必需的对象。内存溢出之前，进行回收</li>
-<li>弱引用。使用WeakReference类来实现。生命周期在xia下一次垃圾收集之前。</li>
-<li>虚引用。使用PhantonReference类来实现。</li>
-</ul>
-<p>不可达的对象，也并非“非死不可”。在finalize（）方法中，可以把this参数赋值给某个变量，就保存下了引用。</p>
-<h3 id="回收方法区"><a href="#回收方法区" class="headerlink" title="回收方法区"></a>回收方法区</h3><p>主要回收废弃常量和无用的类。</p>
-<p>回收类，条件相当苛刻：</p>
-<ul>
-<li>不存在类的实例</li>
-<li>类的classloader已回收</li>
-<li>class对象没有被引用，没有通过反射访问该类的方法</li>
-</ul>
-<p>即使满足以上条件，进说明类对象“可以回收”，但也不一定会回收</p>
-<h3 id="GC算法"><a href="#GC算法" class="headerlink" title="GC算法"></a>GC算法</h3><ul>
-<li>标记-清除算法：标记和清除的效率都不高；产生内存碎片</li>
-<li>复制算法：实现简单，运行高效。需要额外内存空间进行担保，内存利用率低，浪费50%空间</li>
-<li>标记-整理算法：先标记，后整理，较少内存碎片问题</li>
-<li>分代收集算法</li>
-</ul>
-<h3 id="HotSpot的算法实现"><a href="#HotSpot的算法实现" class="headerlink" title="HotSpot的算法实现"></a>HotSpot的算法实现</h3><p>枚举根节点</p>
-<ul>
-<li>使用可达性分析方法，时间消耗很大，并且会产生gc停顿。</li>
-<li>可达性分析需要确保一致性，分析过程中不可以出现引用关系变化的情况，因此gc时会暂停所有java执行线程，即stop the world.</li>
-<li>java虚拟机基本都采用准确是gc，虚拟机有办法直接得知哪些地方存放着对象引用。</li>
-<li>hotspot的实现中，使用OopMap的数据结构记录引用信息。可以快速完成gc roots的枚举</li>
-</ul>
-<p>安全点</p>
-<ul>
-<li>hotspot并没有为每条指令都生成OopMap（过于占用空间），只在特定位置记录了这些信息，这些位置称为“安全点”</li>
-<li>程序在运行时，只有到达安全点是才能停顿下来，执行gc</li>
-</ul>
-<p>安全区域</p>
-<ul>
-<li>sleep状态的线程，无法到达安全点。无法gc，需要安全区域来解决</li>
-<li>安全区域位于一段代码之中，引用关系不会发生变化，在此区域任何地方开始gc都是安全的</li>
-</ul>
-<h3 id="垃圾收集器"><a href="#垃圾收集器" class="headerlink" title="垃圾收集器"></a>垃圾收集器</h3><ul>
-<li>Serial收集器。单线程收集，gc是暂停其他所有线程。效率高。client模式下虚拟机的默认新生代收集器。client模式，内存一般100M左右，不会太大，延迟不到100ms，基本可接受。</li>
-<li>ParNew收集器。Serial的多线程版本。使用多个线程执行gc。stop the world。其他与Serial类似。运行在server模式下首选的新生代收集器，主要是因为只有它能与VMS收集器配合工作。单cpu时，比serial要差，适合多cpu环镜</li>
-<li>Parallel Scavenge。关注点在吞吐量，而不是减小stop world时间。吞吐量=运行用户线程时间/(用户线程+gc线程)</li>
-<li>Serial Old 收集器。Serial收集器的老年代版本。单线程，标记-整理算法。client模式下使用</li>
-<li>Parallel Old收集器。parallel老年代版本，标记-整理算法。</li>
-<li>CMS收集器。以获取最短回收停顿时间为目标。标记-清除算法。</li>
-<li>G1收集器。gc技术最前沿成果。面向服务器。hotspot希望未来它可替换CMS。</li>
-</ul>
-<h3 id="CMS"><a href="#CMS" class="headerlink" title="CMS"></a>CMS</h3><p>工作步骤：</p>
 <ol>
-<li>初始标记。stop world，但会很快</li>
-<li>并发标记。stop world,很快</li>
-<li>重新标记</li>
-<li>并发清除</li>
+<li>增加P(B) : 养成保存电影票习惯</li>
+<li>减小P(A) : 少在外通宵修炼</li>
+<li>减小P(B|A) : 不轻易拿出电影票据</li>
 </ol>
-<p>优点：并发手机，低停顿<br>缺点：对cpu资源敏感，（少于4核时，性能慢）。内存碎片（标记-清除算法）。无法处理浮动垃圾。</p>
-<h3 id="其他-3"><a href="#其他-3" class="headerlink" title="其他"></a>其他</h3><p>并发和并行<br>gc并行：多个gc线程并行工作，用户线程等待<br>gc并发：用户线程，gc线程同时执行（不一定并行，可能交替执行）</p>
-<p>新生代GC（Minor GC）：频繁，快速<br>老年代GC（Major GC/Full GC）：比Minor GC慢10倍左右 </p>
-<h2 id="内存分配与回收策略"><a href="#内存分配与回收策略" class="headerlink" title="内存分配与回收策略"></a>内存分配与回收策略</h2><ul>
-<li>对象优先在eden分配。eden无足够空间，触发一次Minor GC</li>
-<li>大对象直接进入老年代</li>
-<li>长期存活对象进入老年代</li>
-<li>动态对象年龄判定。虚拟机不强制必须达到年龄才能晋升老年代，survivor中相同年龄所有对象大小的综合大于survivor空间一半时，也可直接进入老年代</li>
-<li>空间分配担保</li>
+<a id="more"></a>
+<h1 id="2-找东西背后的概率问题"><a href="#2-找东西背后的概率问题" class="headerlink" title="2. 找东西背后的概率问题"></a>2. 找东西背后的概率问题</h1><blockquote>
+<p>8个抽屉，文件随机放入某个抽屉。1/5 概率文件未放进抽屉，文件搞丢了。求打开前n个抽屉，没找到文件的情况下，文件在剩余抽屉的概率。</p>
+<p>直观感觉：n越大，文件在剩余抽屉的概率越高<br>事实：n越大，文件在剩余抽屉的概率越低</p>
+</blockquote>
+<h3 id="解法1"><a href="#解法1" class="headerlink" title="解法1"></a>解法1</h3><ul>
+<li>8个抽屉， 1/5 概率搞丢。可假设另有两个虚拟抽屉，存放搞丢的文件。</li>
+<li>找n个抽屉未找到，则文件在剩下的 （10 - n）个抽屉中</li>
+<li>只能打开剩下的 （8 - n）个抽屉，因此所求概率为</li>
 </ul>
-<h1 id="第四章-虚拟机性能监控工具与故障处理工具"><a href="#第四章-虚拟机性能监控工具与故障处理工具" class="headerlink" title="第四章 虚拟机性能监控工具与故障处理工具"></a>第四章 虚拟机性能监控工具与故障处理工具</h1><h2 id="jdk命令行工具"><a href="#jdk命令行工具" class="headerlink" title="jdk命令行工具"></a>jdk命令行工具</h2><p>大多数是jdk/lib/tools.jar类库的一层包装，主要功能在tools类库中实现。因此命令行工具的可执行文件大小都在27kb左右。</p>
+<p><img src="http://chart.googleapis.com/chart?cht=tx&chl=$$\frac{8-n}{10-n}$$" style="border:none;"></p>
+<p>即<br><img src="http://chart.googleapis.com/chart?cht=tx&chl=1-\frac{2}{10-n}" style="border:none;"></p>
+<p>是一个递减函数：<strong>n越大，文件在剩余抽屉概率越低</strong></p>
+<h3 id="解法2"><a href="#解法2" class="headerlink" title="解法2"></a>解法2</h3><ul>
+<li><p>P(A) : 文件不在前n个抽屉中<br><img src="http://chart.googleapis.com/chart?cht=tx&chl=1-\frac{4}{5}*\frac{n}{8}" style="border:none;"></p>
+</li>
+<li><p>P(B) : 文件在剩下的抽屉中<br><img src="http://chart.googleapis.com/chart?cht=tx&chl=P(B)=\frac{4}{5}*\frac{8-n}{8}" style="border:none;"></p>
+</li>
+<li><p>显然P(A|B) = 1</p>
+</li>
+<li>根据贝叶斯定理，则<br><img src="http://chart.googleapis.com/chart?cht=tx&chl=P(B|A)=\frac{P(A|B)*P(B)}{P(A)}=\frac{8-n}{10-n}" style="border:none;"></li>
+</ul>
+<h1 id="3-设计调查问卷的艺术"><a href="#3-设计调查问卷的艺术" class="headerlink" title="3. 设计调查问卷的艺术"></a>3. 设计调查问卷的艺术</h1><blockquote>
+<p>极度隐私问题，用户未必如实回答</p>
+</blockquote>
+<p>针对只有是否两个选项的隐私题目（特定题目，非全部题目）可以如下设计：</p>
 <ul>
-<li>jps：查看本机所有java虚拟机进程</li>
-<li>jstat：收集虚拟机各方面的运行数据</li>
-<li>jinfo：显示虚拟机配置信息</li>
-<li>jmap：生成虚拟机内存转储快照</li>
-<li>jhat：分析jmap生成的dump文件，会启一个webserver，分析内存</li>
-<li>jstack：虚拟机线程快照</li>
-<li>javap：反汇编</li>
+<li>问卷上准备一枚硬币（同时作为填写问卷酬谢）</li>
+<li>隐私题目，请投硬币。正面朝上，填写真实情况；反面朝上，在投掷一次，正面选是，反面选否</li>
+<li>若第一次为正面，用户扔可以在投掷一次，可掩人耳目</li>
+<li>通过概率学，可计算出真正意愿选“是”概率，和选“否”概率</li>
 </ul>
-<p>jps -v : 输出虚拟机启动时的jvm参数<br>jstat -gc：监视java堆状况<br>jstat -gcutil：监视java堆，输出是占用百分比</p>
-<h2 id="jdk可视化工具"><a href="#jdk可视化工具" class="headerlink" title="jdk可视化工具"></a>jdk可视化工具</h2><ul>
-<li>jconsole</li>
-<li>VisualVM：功能强大。运行监视和故障处理。</li>
+<h1 id="4-统计数据的陷阱"><a href="#4-统计数据的陷阱" class="headerlink" title="4. 统计数据的陷阱"></a>4. 统计数据的陷阱</h1><h3 id="虚假独立性数据"><a href="#虚假独立性数据" class="headerlink" title="虚假独立性数据"></a>虚假独立性数据</h3><blockquote>
+<p>统计数据显示，铀矿工人寿命与其他人相当，甚至更长<br>由此，推论出 铀矿工作对身体无害<br>统计数据本身并未说谎，铀矿工人寿命不必普通人底；难就难在如何拨开数据的外表，从中挖掘出正确的信息。<br>事实上，只有身体强健的人才回去铀矿工作，他们的寿命本来就长一些，因为去铀矿工作，寿命被拉回至平均水平，造成数据“伪独立性”。<br>这种现象称为“健康工人效应”</p>
+</blockquote>
+<p>类似现象：打太极和不打太极寿命相同。 打太极的人多体弱</p>
+<h3 id="虚假相关性数据"><a href="#虚假相关性数据" class="headerlink" title="虚假相关性数据"></a>虚假相关性数据</h3><blockquote>
+<p>去救火的消防员越多，火灾损失越大<br>因为火灾大，所以救火消防员多。颠倒了因果关系</p>
+</blockquote>
+<p>事实上，统计上呈相关性的时间，有可能根本就没有因果关系</p>
+<blockquote>
+<p>冰淇淋销量增加，与鲨鱼食人时间增加，呈相关性<br>两者并无因果关系。都是因为夏天到了，导致的现象</p>
+</blockquote>
+<h3 id="辛普森悖论"><a href="#辛普森悖论" class="headerlink" title="辛普森悖论"></a>辛普森悖论</h3><p>各个局部表现很好，合起来反而更差</p>
+<blockquote>
+<p>A学校，B学校<br>A学校的各个学院 的女生比例 都高于 B学校<br>统计整个学校，B学校女生比例高于A学校<br>原因是因为，两个学校的不同学院之间，人数不同</p>
+</blockquote>
+<h1 id="5-为什么人们往往不愿意承担风险"><a href="#5-为什么人们往往不愿意承担风险" class="headerlink" title="5. 为什么人们往往不愿意承担风险"></a>5. 为什么人们往往不愿意承担风险</h1><blockquote>
+<p>经济学：收入本身并不重要，收入带来的好处，或者幸福感，满足感</p>
+</blockquote>
+<p>收入的边际效用是递减的。（收入每增加一个单位，带来的额外效用减小）</p>
+<p>若一个人认为收入的边际效用是递减的，则这个人是一个风险规避者。对于期望收入相同的两件事，他更愿意做封校更小的一件。<br>风险规避者甚至有可能通过减少自己的收入来避免可能的风险</p>
+<h1 id="6-消费税"><a href="#6-消费税" class="headerlink" title="6.消费税"></a>6.消费税</h1><blockquote>
+<p>曼昆 《经济学原理》 — 经济学领域最经典教材之一</p>
+</blockquote>
+<p>政府向消费者征税，买方消费欲望降低，购买力下降，导致卖方的供给也会变低，达到新的平衡。因此，消费税是由消费者和卖家共同承担的。<br>政府向卖家征税也是同样道理。</p>
+<h3 id="奢侈品"><a href="#奢侈品" class="headerlink" title="奢侈品"></a>奢侈品</h3><blockquote>
+<p>买奢侈品的都是富人，因此向消费者征税<br>奢侈品非生活必须品，价格升高，大量消费者退出市场<br>奢侈品供给曲线非常陡，即使价格变化很大，产量仍然变化不大，因为制造奢侈品需要很多时间，人力。生产商无法快速应对市场需求变化。<br>虽然向买方征税，税多数由生产者承担。与政府决策适得其反</p>
+</blockquote>
+<p>向消费者征税，与向生产者征税的效果完全一样。（最终，生产者承担税费，与消费者承担税费都相同）（供需曲线都是直线时，可以从数学上证明此结论）</p>
+<h1 id="7-价格里的阴谋"><a href="#7-价格里的阴谋" class="headerlink" title="7. 价格里的阴谋"></a>7. 价格里的阴谋</h1><h3 id="价格歧视"><a href="#价格歧视" class="headerlink" title="价格歧视"></a>价格歧视</h3><p>为不同消费者制定不同价格的策略</p>
+<p>对于一个恶汉来说，第一个烧饼的价值显然比第七个烧饼的价值更高。<br>同样，工资提高事，针对等额的提升度，工资低的所带来的价值更高<br>同等金额，对于穷人和富人的价值不同。</p>
+<h3 id="二级价格歧视"><a href="#二级价格歧视" class="headerlink" title="二级价格歧视"></a>二级价格歧视</h3><p>让高端消费者自动选择高价位商品的定价策略</p>
+<p>想办法拉大高端套餐和低端套餐的差距，可以向高端用户收取更高的费用。<br>一个有趣的现象：让低端产品更低端，反而会增大生产商的收益。</p>
+<p>二级价格歧视理论 产生的奇怪现象：<br>快递：次日达，隔日达，普通到达。同一天寄出的商品，也都是同一天到达，隔日达的商品会在仓库中存一天（为了区分不同档次的产品，商家有意设置低端消费品）<br>IBM曾研发让打印机慢速打印的设备<br>飞机，头等舱，经济舱都是同样的原理</p>
+<h3 id="三级价格歧视"><a href="#三级价格歧视" class="headerlink" title="三级价格歧视"></a>三级价格歧视</h3><p>直接给商品提供不同的价格。</p>
+<p>明显三级价格歧视：</p>
+<ul>
+<li>学生证半价；</li>
+<li>同一商品，不同省份价格不同；</li>
+<li>高速公路对不同车型收费不同等。</li>
 </ul>
-<h2 id="jdk版本选择"><a href="#jdk版本选择" class="headerlink" title="jdk版本选择"></a>jdk版本选择</h2><p>版本升级也有不少性能倒退的案例，受程序，第三方包兼容性以及中间件的限制，在企业中升级jdk版本需要慎重考虑。</p>
+<p>隐蔽的三级价格歧视：</p>
+<ul>
+<li>狡诈的电商网站，点击“从高到低排序”，会给出更高的价格；</li>
+<li>优惠券；30%的人会保留使用，70%弄丢或过期。区分了不同用户，相当于为对价格比较敏感的低端用户提供了优惠</li>
+<li>邮寄回扣，吧收据，反馈卡，回扣申请表等寄回厂家。国外电子产品较常见</li>
+</ul>
+<p>游乐园，火车票，电影票不大能分出消费者等级。因此二级价格歧视无效，多使用三级价格歧视</p>
+<h3 id="两部分定价"><a href="#两部分定价" class="headerlink" title="两部分定价"></a>两部分定价</h3><p>入场费 + 消费的费用<br>游乐场，酒吧常用此方式。会员入会费，信用卡年费，手机月租费等</p>
+<h3 id="捆绑销售"><a href="#捆绑销售" class="headerlink" title="捆绑销售"></a>捆绑销售</h3><blockquote>
+<p>不一定总是适用。<br>适用场景；不同买家对捆绑的商品具有不同的偏好</p>
+</blockquote>
+<p>word，excel，ppt捆绑销售</p>
+<p>维基百科上“pricing strategies”, 共有20多种定价策略<br>link : <a href="https://en.wikipedia.org/wiki/Pricing_strategies" target="_blank" rel="external">https://en.wikipedia.org/wiki/Pricing_strategies</a><br>终极目的都是一致的：尽可能从消费者身上赚取更多利润</p>
+<h1 id="8-公用品的悲剧"><a href="#8-公用品的悲剧" class="headerlink" title="8.公用品的悲剧"></a>8.公用品的悲剧</h1><p>类似于囚徒困境的原理</p>
+<p>对单个用户来讲，做比不做带来更大收益，都选择做</p>
+<ul>
+<li>挤公交：对等公交的人，能挤上比挤不上收益更大</li>
+<li>企业污染环境：排放污水降低开销，污染环境的代价由全体承担，均摊到自己很少，所以要污染环境</li>
+<li>车祸越离奇，堵车越严重，即使车祸没挡住路。司机会观看车祸，甚至拍照等，对车祸现场的司机来说，观看车祸的收益，比自己登上一分钟收益更大，导致后面的车辆都要多等一分钟</li>
+</ul>
+<h1 id="10-公平分割"><a href="#10-公平分割" class="headerlink" title="10.公平分割"></a>10.公平分割</h1><h3 id="均衡分割"><a href="#均衡分割" class="headerlink" title="均衡分割"></a>均衡分割</h3><p>两个人分：你来分，我来选。（分的人，收益是一半，选的人收益可能超过一半）</p>
+<p>多个人分，假设4个人。分割过程：</p>
+<ul>
+<li>选两人，你来分，我来选（共两份）</li>
+<li>让这两个人把各自手中的蛋糕分成3份（共2*3=6份），让第3个人从2人中各选一份</li>
+<li>这3个人把各自手中蛋糕分成4份（共3*4份），让第4个人从3人手中各选1份</li>
+<li>分割结束，每个人得到自己手中的蛋糕份额</li>
+</ul>
+<p>最后削减人算法：</p>
+<ul>
+<li>第1个人，从蛋糕中切出他所认为的1/n, 交给第2个人。</li>
+<li>第2个人也可从中切出一小块，交给第3个人，</li>
+<li>依次类推，每个人拿到蛋糕后都有一次修剪机会，然后移交给下一个人，最后一个修剪蛋糕的人将获得这块蛋糕</li>
+<li>余下的n-1个人从头开始重复这个过程</li>
+</ul>
+<h3 id="免嫉妒分割"><a href="#免嫉妒分割" class="headerlink" title="免嫉妒分割"></a>免嫉妒分割</h3><p>免嫉妒分割比均衡分割更强的要求。免嫉妒分割一定也满足均衡分割。<br>蛋糕上有说过，巧克力，奶油等，每个人认为的价值不一样，有人爱吃水果，有人爱吃巧克力。构造出免嫉妒的分割方案非常困难。</p>
+<p>3人免嫉妒分割方案：</p>
+<ul>
+<li>A,B,C 3人，A把蛋糕3等分（按价值等分，当然是按照A的价值标准分割）</li>
+<li>B若认为3块中，较大的两块一样大，则按照C,B,A的顺序选蛋糕，问题解决；B若认为较大的两块不一样大，则B把较大一块切下一部分，使其跟第二大的蛋糕一样大，按照C,B,A顺序选取，但有个限制，若C没选被修剪的蛋糕，B必须选它。</li>
+<li>此时，每人都分得一份蛋糕。被修剪蛋糕在B或C手中。C第一个选，不会妒忌别人；B选取了两个较大块中的一个，也不会妒忌别人，A是分蛋糕的，也不会妒忌别人。</li>
+<li>还剩一小块，进入分割流程第二轮</li>
+<li>被修剪蛋糕在B或C手中。X表示拿到修剪蛋糕的人，B,C中未拿到修剪蛋糕的用Y表示，A还用A表示。</li>
+<li>Y切分，X，A，Y的顺序取。第二轮结束。</li>
+<li>X第一个取，不会妒忌别人；A在第一轮已经拿到了足够的价值，即使不参与第二轮，也不会妒忌别人；Y是分蛋糕的，也不会妒忌别人。</li>
+<li>分割结束，所有人都不会妒忌别人</li>
+</ul>
+<p>以上方法，只适合3个人的情况，对于人数更多的情况，数学家还没有找到一个比较可行的方案</p>
+<h1 id="数学之美"><a href="#数学之美" class="headerlink" title="数学之美"></a>数学之美</h1><h3 id="幻方"><a href="#幻方" class="headerlink" title="幻方"></a>幻方</h3><table>
+<thead>
+<tr>
+<th>8</th>
+<th>1</th>
+<th>6</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3</td>
+<td>5</td>
+<td>7</td>
+</tr>
+<tr>
+<td>4</td>
+<td>9</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+<p>$$816^2 + 357^2 + 492^2 = 618^2 + 753^2 + 294^2$$<br>所有幻方均满足上述性质</p>
+<h3 id="欧拉恒等式"><a href="#欧拉恒等式" class="headerlink" title="欧拉恒等式"></a>欧拉恒等式</h3><p>$$e^{\pi i} + 1 = 0$$</p>
+<p>三角形一共发现有5000多个心，目前数目还在不断增加<br>任意给定两个面积相等的多边形，它们之间都可以通过剪拼得到<br>俄罗斯方块可以永远玩下去吗？ —- <strong>不能</strong></p>
 
       
 
@@ -474,7 +417,7 @@
     <a class="close js-modal-close" href="javascript:;"><i class="icon icon-close"></i></a>
     <p>扫一扫，分享到微信</p>
     <div class="wx-qrcode">
-      <img src="http://s.jiathis.com/qrcode.php?url=http://yoursite.com/2017/05/03/jvm/" alt="微信分享二维码">
+      <img src="http://s.jiathis.com/qrcode.php?url=http://yoursite.com/2017/05/04/THINKING-OF-FUN_reading_notes/" alt="微信分享二维码">
     </div>
 </div>
 
@@ -488,18 +431,18 @@
   
 <nav id="article-nav">
   
-    <a href="/2017/05/03/THINKING-OF-FUN_reading_notes/" id="article-nav-newer" class="article-nav-link-wrap">
+    <a href="/2017/05/04/jvm/" id="article-nav-newer" class="article-nav-link-wrap">
       <i class="icon-circle-left"></i>
       <div class="article-nav-title">
         
-          思考的乐趣-读书笔记
+          JVM 简介
         
       </div>
     </a>
   
   
-    <a href="/2017/05/01/hello-world/" id="article-nav-older" class="article-nav-link-wrap">
-      <div class="article-nav-title">Hello World</div>
+    <a href="/2017/05/04/HashMap/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">HashMap工作原理</div>
       <i class="icon-circle-right"></i>
     </a>
   

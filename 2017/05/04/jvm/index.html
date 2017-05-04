@@ -6,18 +6,18 @@
   <meta name="renderer" content="webkit">
   <meta http-equiv="X-UA-Compatible" content="IE=edge" >
   <link rel="dns-prefetch" href="http://yoursite.com">
-  <title>HashMap工作原理 | Bamboo&#39;s Blog</title>
+  <title>JVM 简介 | Bamboo&#39;s Blog</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta name="description" content="最近参与公司的实习生招聘工作，面试了几位实习生，我有一道每次面试都必问的题目【HasmMap的工作原理】，但很遗憾，至今还没遇到令我完全满意的回答。今天这篇文章就来回答下HashMap相关的面试题。 1. 什么是HashMap？java.util.HashMap是Java语言标准库中的一个容器类，主要用来存储键值对。是数据结构中哈希表在Java语言的一个实现。 哈希表是数据结构中的一个概念，可以存">
+  <meta name="description" content="前言为了达到给所有硬件提供一致的虚拟机平台的目的，jvm牺牲了一些与硬件相关的性能特性。 第一章 走进java 2006年，Sun公式宣布最终会将java开源，并建立了OpenJDK组织源码进行独立管理。除了极少数产权代码（Sun本身也无权进行开源处理）外，OpenJDK几乎包括了Sun JDK的全部代码。所以OpenJDK 7 与 Sun JDK 1.7本质史昂就是同一套代码库开发的产品  历史">
 <meta property="og:type" content="article">
-<meta property="og:title" content="HashMap工作原理">
-<meta property="og:url" content="http://yoursite.com/2017/05/03/HashMap/index.html">
+<meta property="og:title" content="JVM 简介">
+<meta property="og:url" content="http://yoursite.com/2017/05/04/jvm/index.html">
 <meta property="og:site_name" content="Bamboo&#39;s Blog">
-<meta property="og:description" content="最近参与公司的实习生招聘工作，面试了几位实习生，我有一道每次面试都必问的题目【HasmMap的工作原理】，但很遗憾，至今还没遇到令我完全满意的回答。今天这篇文章就来回答下HashMap相关的面试题。 1. 什么是HashMap？java.util.HashMap是Java语言标准库中的一个容器类，主要用来存储键值对。是数据结构中哈希表在Java语言的一个实现。 哈希表是数据结构中的一个概念，可以存">
-<meta property="og:updated_time" content="2017-05-03T01:52:12.000Z">
+<meta property="og:description" content="前言为了达到给所有硬件提供一致的虚拟机平台的目的，jvm牺牲了一些与硬件相关的性能特性。 第一章 走进java 2006年，Sun公式宣布最终会将java开源，并建立了OpenJDK组织源码进行独立管理。除了极少数产权代码（Sun本身也无权进行开源处理）外，OpenJDK几乎包括了Sun JDK的全部代码。所以OpenJDK 7 与 Sun JDK 1.7本质史昂就是同一套代码库开发的产品  历史">
+<meta property="og:updated_time" content="2017-05-04T13:28:01.000Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="HashMap工作原理">
-<meta name="twitter:description" content="最近参与公司的实习生招聘工作，面试了几位实习生，我有一道每次面试都必问的题目【HasmMap的工作原理】，但很遗憾，至今还没遇到令我完全满意的回答。今天这篇文章就来回答下HashMap相关的面试题。 1. 什么是HashMap？java.util.HashMap是Java语言标准库中的一个容器类，主要用来存储键值对。是数据结构中哈希表在Java语言的一个实现。 哈希表是数据结构中的一个概念，可以存">
+<meta name="twitter:title" content="JVM 简介">
+<meta name="twitter:description" content="前言为了达到给所有硬件提供一致的虚拟机平台的目的，jvm牺牲了一些与硬件相关的性能特性。 第一章 走进java 2006年，Sun公式宣布最终会将java开源，并建立了OpenJDK组织源码进行独立管理。除了极少数产权代码（Sun本身也无权进行开源处理）外，OpenJDK几乎包括了Sun JDK的全部代码。所以OpenJDK 7 与 Sun JDK 1.7本质史昂就是同一套代码库开发的产品  历史">
   
     <link rel="alternative" href="/atom.xml" title="Bamboo&#39;s Blog" type="application/atom+xml">
   
@@ -60,8 +60,6 @@
 			
 				<li><a href="/">主页</a></li>
 	        
-				<li><a href="/tags/随笔/">随笔</a></li>
-	        
 			</ul>
 		</nav>
 		<nav class="header-smart-menu">
@@ -86,9 +84,7 @@
 		        
 					<a class="weibo" target="_blank" href="http://weibo.com/u/1691787821" title="weibo"><i class="icon-weibo"></i></a>
 		        
-					<a class="rss" target="_blank" href="#" title="rss"><i class="icon-rss"></i></a>
-		        
-					<a class="zhihu" target="_blank" href="#" title="zhihu"><i class="icon-zhihu"></i></a>
+					<a class="jianshu" target="_blank" href="http://www.jianshu.com/u/249ea85058ec" title="jianshu"><i class="icon-jianshu"></i></a>
 		        
 			</div>
 		</nav>
@@ -118,8 +114,6 @@
 			
 				
 			
-				
-			
 			
 			
 			<nav class="header-nav">
@@ -129,9 +123,7 @@
 			        
 						<a class="weibo" target="_blank" href="http://weibo.com/u/1691787821" title="weibo"><i class="icon-weibo"></i></a>
 			        
-						<a class="rss" target="_blank" href="#" title="rss"><i class="icon-rss"></i></a>
-			        
-						<a class="zhihu" target="_blank" href="#" title="zhihu"><i class="icon-zhihu"></i></a>
+						<a class="jianshu" target="_blank" href="http://www.jianshu.com/u/249ea85058ec" title="jianshu"><i class="icon-jianshu"></i></a>
 			        
 				</div>
 			</nav>
@@ -140,9 +132,7 @@
 				<ul style="width: 50%">
 				
 				
-					<li style="width: 50%"><a href="/">主页</a></li>
-		        
-					<li style="width: 50%"><a href="/tags/随笔/">随笔</a></li>
+					<li style="width: 100%"><a href="/">主页</a></li>
 		        
 				</ul>
 			</nav>
@@ -157,71 +147,240 @@
             <canvas data-colors="#eaeaea" data-sectionHeight="100" data-contentId="js-content" id="myCanvas1" class="anm-canvas"></canvas>
           </div>
           <div id="js-content" class="content-ll">
-            <article id="post-HashMap" class="article article-type-post " itemscope itemprop="blogPost">
+            <article id="post-jvm" class="article article-type-post " itemscope itemprop="blogPost">
   <div class="article-inner">
     
       <header class="article-header">
         
   
     <h1 class="article-title" itemprop="name">
-      HashMap工作原理
+      JVM 简介
     </h1>
   
 
         
-        <a href="/2017/05/03/HashMap/" class="archive-article-date">
-  	<time datetime="2017-05-03T01:52:12.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2017-05-03</time>
+        <a href="/2017/05/04/jvm/" class="archive-article-date">
+  	<time datetime="2017-05-04T13:28:01.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2017-05-04</time>
 </a>
         
       </header>
     
     <div class="article-entry" itemprop="articleBody">
       
-        <p>最近参与公司的实习生招聘工作，面试了几位实习生，我有一道每次面试都必问的题目【HasmMap的工作原理】，但很遗憾，至今还没遇到令我完全满意的回答。今天这篇文章就来回答下HashMap相关的面试题。</p>
-<h2 id="1-什么是HashMap？"><a href="#1-什么是HashMap？" class="headerlink" title="1. 什么是HashMap？"></a>1. 什么是HashMap？</h2><p>java.util.HashMap是Java语言标准库中的一个容器类，主要用来存储键值对。是数据结构中哈希表在Java语言的一个实现。</p>
-<p>哈希表是数据结构中的一个概念，可以存储n个元素，取元素的时间复杂度为O(1).</p>
-<p>一般情况下，从n个元素中查找一个元素，时间复杂度为O(n). 为何哈希表能有O(1)的时间复杂度？</p>
-<p>因为元素在存储时已经大致确定了位置，查找的时候可以定位到对应的位置，因此时间复杂度为O(1).</p>
-<h2 id="2-HashMap中的数据结构"><a href="#2-HashMap中的数据结构" class="headerlink" title="2. HashMap中的数据结构"></a>2. HashMap中的数据结构</h2><p>HashMap使用数组+链表的方式实现。</p>
-<p>数组的作用主要是定位元素位置。</p>
-<p>链表的作用是解决哈希冲突问题。遇到hash值相等的key，就把相应键值使用链表的方式全部保存下来。</p>
-<h2 id="3-put操作"><a href="#3-put操作" class="headerlink" title="3. put操作"></a>3. put操作</h2><p>put方法定义</p>
-<p>public V put(K key, V value)<br>put操作执行过程：</p>
-<p>a. 计算key的hashcode</p>
-<p>b. 根据hashcode计算出需要将该键值对存储的位置-即桶的位置</p>
-<p>c. 找到桶的位置后，如果桶未被占用，则存入该键值对；若桶中已有数据，则需要遍历桶中数据，并且比较key的equals方法。遇到key相同的，则用新的value，把旧值替换掉（put操作会将旧值覆盖掉）。若没找到，则将该键值对存储在链表的末尾。</p>
-<h2 id="4-get操作"><a href="#4-get操作" class="headerlink" title="4. get操作"></a>4. get操作</h2><p>get方法定义</p>
-<p>public V get(Object key)<br>get操作执行过程：</p>
-<p>a. 计算key的hashcode</p>
-<p>b. 根据hashcode，定位该元素所在桶的位置</p>
-<p>c. 若桶为空，则返回null；若桶不空，则遍历桶中数据，比较key的equals方法，若遇到相同的元素，则返回对于的value中；没遇到，则返回null</p>
-<h2 id="5-什么样的类型可以作为HashMap的key？"><a href="#5-什么样的类型可以作为HashMap的key？" class="headerlink" title="5. 什么样的类型可以作为HashMap的key？"></a>5. 什么样的类型可以作为HashMap的key？</h2><p>a. 重写hashCode() 和 equals() 方法</p>
-<p>HashMap在get/put数据时，需要调用hashCode() 和 equals() 方法，因此只有重写了hashCode() 和 equals() 方法的类，才可以作为HashMap的key。</p>
-<p>（hashCode相同，对象不一定相等；对象相等，则hashCode必然相同）</p>
-<p>b. 不可变性</p>
-<p>不可变性也是必要的，若元素可变，则相应hashCode也会发生变化，调用get()方法时，可能找不到相应的value，甚至可能找到错误的value。</p>
-<h2 id="6-如何计算数组下标"><a href="#6-如何计算数组下标" class="headerlink" title="6. 如何计算数组下标"></a>6. 如何计算数组下标</h2><p>在JDK1.8之前的版本中，是通过key的hashCode()进行hashing，然后将( n-1 &amp; hash)来确定数组下标，即桶的位置。</p>
-<p>在JDK1.8版本，将hash值的高16位与低16位进行异或</p>
-<p>JDK 1.8：</p>
-<p>(h = key.hashCode()) ^ (h &gt;&gt;&gt;16)<br>这样做的目的主要是为了减少哈希冲突的可能性。特别是数据量较小时，旧的计算方式哈希冲突的可能比较大。</p>
-<h2 id="7-HashMap的两个重要概念"><a href="#7-HashMap的两个重要概念" class="headerlink" title="7. HashMap的两个重要概念"></a>7. HashMap的两个重要概念</h2><p>容量(Capacity)，即HashMap中数组的大小，也是桶的个数</p>
-<p>负载因子(load factor)，也成装载因子 = hashmap中实际保存键值对个数 / hashmap中数组的大小</p>
-<p>随着HashMap中元素个数的增多，负载因子增大。如果不做额外的处理，则桶中的链表会越来越长，因此HashMap就无法保证取元素时O(1)的时间复杂度。因此，必须要调整HashMap中数组的大小</p>
-<p>HashMap中定义的默认负载因子大小为0.75，当负载因子大于该值时，将对数组进行扩容</p>
-<h2 id="8-HashMap其他面试题"><a href="#8-HashMap其他面试题" class="headerlink" title="8. HashMap其他面试题"></a>8. HashMap其他面试题</h2><p>HashMap与HashTable区别：Hashtable中加入了锁，线程安全；HashMap线程不安全。也正因为Hashtable中加入了锁，导致性能上要差于HashMap。</p>
-<p>ConcurrentHashMap：HashMap、Hashtable在性能和安全性上的一个折中方案。实现原理是ConcurrentHashMap中将Map划分为多个子Map，子Map分别加锁。对一个子Map加锁以后，不影响对其他子Map的访问。</p>
-<h2 id="9-为什么要面试这道题目"><a href="#9-为什么要面试这道题目" class="headerlink" title="9. 为什么要面试这道题目"></a>9. 为什么要面试这道题目</h2><p>a. 考察求职者技术水平.</p>
-<p>我一把把这道题目作为第一道面试题来考察求职者。根据回答情况，能大致推测到求职者的水平，方便后续的面试。</p>
-<p>零级水平：完全不知道。（当然，这种可能性很少。毕竟HashMap是非常常用的一个工具类）</p>
-<p>一级水平：可以回答HashMap的时间复杂度，容量，装载因子等概念</p>
-<p>二级水平：回答出get/put操作的完整过程。（多数求职者都没能完整的回答这个问题。能完全回答出这个问题，说明求职者对哈希的思想有完整的理解，而且很可能阅读过HashMap的源码 - 要想写好代码，首先要阅读优秀源代码的习惯）</p>
-<p>三级水平：回答出hashCode，equals作用，不可变性，线程安全的Map（基本上满足公司实习生的要求，可以发offer了）</p>
-<p>b. 考察求职者表达能力</p>
-<p>能够把一件复杂的事情讲的清晰易懂，是件了不起的能力。（笔者在这方面能力有所欠佳）</p>
-<hr>
-<p>注：</p>
-<p>HashMap中其实允许null作为key，因为在get/put操作时都会对null值做特殊的处理。</p>
-<p>本文主要是从哈希表的角度来讲述HashMap，因此这些细节问题并未涉及。</p>
+        <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>为了达到给所有硬件提供一致的虚拟机平台的目的，jvm牺牲了一些与硬件相关的性能特性。</p>
+<h1 id="第一章-走进java"><a href="#第一章-走进java" class="headerlink" title="第一章 走进java"></a>第一章 走进java</h1><blockquote>
+<p>2006年，Sun公式宣布最终会将java开源，并建立了OpenJDK组织源码进行独立管理。<br>除了极少数产权代码（Sun本身也无权进行开源处理）外，OpenJDK几乎包括了Sun JDK的全部代码。<br>所以OpenJDK 7 与 Sun JDK 1.7本质史昂就是同一套代码库开发的产品</p>
+</blockquote>
+<h3 id="历史"><a href="#历史" class="headerlink" title="历史"></a>历史</h3><ol>
+<li><p>1996年，sun发布jdk1.0，该jdk中所带的虚拟机就是Classic VM. 这款虚拟机采用纯解释权方式来执行java代码，若用jit编译器，就必须外挂。使用外挂jit编译器后，解释器便不再工作。<br>若用解释器，解释器的性能本来就比较慢。<br>若用编译器，编译器需要对每一行代码都进行编译，由于程序相应时间的压力，不敢应用编译耗时较高的优化技术。<br>由此，“java语言很慢”的形象产生</p>
+</li>
+<li><p>jdk 1.2时，在Solaris平台发布了Exact VM.<br>使用了准确式内存管理（虚拟机可以知道内存中某个位置的数据具体是什么类型）。<br>之前Class VM基于handler（句柄）的对象查找方式，每次定位对象多了一次查找开销</p>
+</li>
+<li><p>HotSpot VM：准确式内存管理，热点代码探测技术<br>Sun JDK，Open JDK都是使用HotSpot VM</p>
+</li>
+<li><p>Dalvik VM，即android上使用的jvm。<br>严格来说，Dalvik VM不是一个java虚拟机；<br>它没有遵循java虚拟机规范，不能直接执行java的class文件;<br>使用的是寄存器架构而不是jvm中常用的栈架构</p>
+</li>
+<li><p>Microsoft JVM<br>微软曾是java技术铁杆支持者，与sun争夺java控制权，令java从跨平台技术变为绑定在windows上的技术是ms的主要目的。<br>sun起诉微软，微软最终败诉，赔偿sun公司2000万，承诺终止其jvm发展。<br>有趣的是，xp sp3完全抹去了jvm，sun又登报希望微软不要这么做</p>
+</li>
+</ol>
+<h3 id="未来"><a href="#未来" class="headerlink" title="未来"></a>未来</h3><ul>
+<li>模块化</li>
+<li>混合语言（java平台上多语言很合编程正成为主流）</li>
+<li>多核并行（函数式）</li>
+<li>进一步丰富语法</li>
+<li>64位虚拟机</li>
+</ul>
+<a id="more"></a>
+<p>由于指针膨胀和各种数据类型对齐补白的原因，运行在64位系统上的java应用，通常比32位系统额外增加10% - 30%的内存消耗；<br>多个机构测试显示，64为虚拟机运行速度在各个测试项中几乎全面落后32位虚拟机，两者大约15%左右的性能差距。<br>32位有个严重的限制：内存不超过4GB；<br>因此，很多企业使用虚拟机集群等方式继续在32位系统中运行。</p>
+<p>计算机最终会完全过渡到64位，jvm也会从32位发展至64位</p>
+<h3 id="其他"><a href="#其他" class="headerlink" title="其他"></a>其他</h3><p>函数式编程的一个重要优点：程序天然地适合并行运行</p>
+<h1 id="第二章-java内存区域与内存溢出异常"><a href="#第二章-java内存区域与内存溢出异常" class="headerlink" title="第二章 java内存区域与内存溢出异常"></a>第二章 java内存区域与内存溢出异常</h1><h2 id="运行时数据区"><a href="#运行时数据区" class="headerlink" title="运行时数据区"></a>运行时数据区</h2><ul>
+<li>方法区</li>
+<li>堆</li>
+<li>虚拟机栈</li>
+<li>本地方法栈</li>
+<li>程序计数器PC</li>
+</ul>
+<p>方法区，堆 ：线程共享<br>栈，pc ： 线程私有<br>本地方法栈中方式使用的语言，使用方式，数据结构并未强制规定，jvm可以自由实现它。（Sun HotSpot 直接把本地方法栈和虚拟机栈合二为一）</p>
+<h3 id="程序计数器"><a href="#程序计数器" class="headerlink" title="程序计数器"></a>程序计数器</h3><p>每个线程都有一个独立了的PC，<br>若正在执行java方法，则PC记录的是正在执行的虚拟机字节码指令地址；<br>若正在执行native方法，则PC值为空。<br>此内存区域是唯一一个在jvm中不可能发生OutOfMemoryError的区域</p>
+<h3 id="java虚拟机栈"><a href="#java虚拟机栈" class="headerlink" title="java虚拟机栈"></a>java虚拟机栈</h3><p>栈中包括了局部变量表<br>局部变量表存放了编译器可知的各种基本数据类型，对象引用，returnAddress类型</p>
+<h3 id="本地方法栈"><a href="#本地方法栈" class="headerlink" title="本地方法栈"></a>本地方法栈</h3><p>native 方法</p>
+<h3 id="java堆"><a href="#java堆" class="headerlink" title="java堆"></a>java堆</h3><p>jvm所管理内存中最大的一块.</p>
+<p>堆的唯一目的: 存放对象实例，几乎所有的对象实例都在这里分配内存（jvm规范说，所有的对象实例以及数组都要在堆上分配，但随着jit的发展，栈上分配，标量替换等优化技术，打破了这个限制）</p>
+<p>从内存分配角度看，线程共享的java堆中可能划分出多个线程私有的分配缓冲区（Thread Local Allocation Buffer, TLAB）</p>
+<p>从内存回收角度，java堆还可以细分</p>
+<ul>
+<li>新生代（eden， from， to）</li>
+<li>老年代</li>
+</ul>
+<p>不论如何划分，都与存放内容无关\<br>无论哪个区域，存储的都仍然是对象实例</p>
+<p>java堆可以位于物理上不连续的内存空间，只要逻辑上连续即可</p>
+<h3 id="方法区"><a href="#方法区" class="headerlink" title="方法区"></a>方法区</h3><p>存储虚拟机加载的类信息，常量，静态变量，jit编译后的代码等数据</p>
+<p>习惯上，称作“永久代”，但并不等价。<br>HotSpot把gc分代扩展至方法区，或者说使用永久代来实现方法区。<br>对其它JVM，并不存在永久代的概念</p>
+<p>如何实现方法区，不收虚拟机规范约束，用永久代来实现，不是个好主意，永久代很容易内存溢出</p>
+<p>方法区主要是针对常量池的回收和对类型的卸载。该区域回收性能较差，尤其是对类型的卸载，条件相当苛刻</p>
+<h3 id="运行时常量池"><a href="#运行时常量池" class="headerlink" title="运行时常量池"></a>运行时常量池</h3><p>方法区的一部分。</p>
+<p>class文件中，包含了常量池信息，用于存放编译器生成的各种字面量和符号引用，这部分内容在类加载后进入方法区的运行时常量池中存放。</p>
+<p>常量池中的内容：编译器产生，也可能运行期产生</p>
+<h3 id="直接内存"><a href="#直接内存" class="headerlink" title="直接内存"></a>直接内存</h3><p>并不是虚拟机的一部分，收到本机总内存（RAM+swap）空间的限制。</p>
+<h3 id="其他-1"><a href="#其他-1" class="headerlink" title="其他"></a>其他</h3><p>StackOverflowError</p>
+<ul>
+<li>线程请求的栈深度大于虚拟机所允许的深度</li>
+</ul>
+<p>OutOfMemoryError</p>
+<ul>
+<li>虚拟机栈扩展时，无法申请到足够的内存</li>
+<li>对中没有内存完成实例分配，并且堆也无法再扩展</li>
+<li>方法区无法满足内存分配需求</li>
+</ul>
+<h2 id="hotspot虚拟机对象"><a href="#hotspot虚拟机对象" class="headerlink" title="hotspot虚拟机对象"></a>hotspot虚拟机对象</h2><h3 id="对象创建"><a href="#对象创建" class="headerlink" title="对象创建"></a>对象创建</h3><p>虚拟机遇到new指令时，检查该指令的参数能否在常量池中定位到一个类的符号引用，并检查这个符号引用的类是否已被加载，解析和初始化过。若没有，则先执行相应的类加载过程。</p>
+<p>类加载检查通过后，将为新生对象分配内存。</p>
+<p>对象所需内存大小在类加载完成后便可完全确定。</p>
+<p>若java堆中内存是规整的，使用“指针碰撞”方式为对象分配内存空间；若不是，使用“空闲列表的”内存分配方式。<br>堆是否规整，由其采用的垃圾回收算法决定。</p>
+<h5 id="多线程问题"><a href="#多线程问题" class="headerlink" title="多线程问题"></a>多线程问题</h5><p>给A分配内存，指针未来得及修改，对象B又同时使用了原来的指针来分配内存。解决这个问题有两种方案：</p>
+<ul>
+<li>分配内存空间的动作进行同步处理。（虚拟机使用CAS配上失败重试的方式保证更新操作的原子性）</li>
+<li>把内存分配的动作按照线程划分在不同的空间之中进行。即内个线程在java堆中预先分配一小块内存（本地线程分配缓冲TLAB）。</li>
+<li>通过-XX+/-UseTLAB来设定是否使用TLAB</li>
+</ul>
+<p>内存分配完成后，虚拟机需要将分配到的内存空间都初始化为零值（不包括对象头）。<br>这一步操作保证了java代码中可以不赋初始值就可直接使用。</p>
+<p>接下来，虚拟机要对对象进行必要的设置，（对象是哪个类的实例，如何找到类的元数据信息，对象哈希码，对象的GC分代年龄等信息），这些信息存储在对象头之中。</p>
+<p>从虚拟机角度来讲，此时对象就产生了。从java程序视角看，对象创建才刚刚开始<init>方法还没有执行。<br>执行new指令后，会执行init方法，按照程序员的意愿初始化对象。此时，创建对象完成。</init></p>
+<h3 id="对象内存布局"><a href="#对象内存布局" class="headerlink" title="对象内存布局"></a>对象内存布局</h3><ul>
+<li>对象头</li>
+<li>实例数据</li>
+<li>对齐填充</li>
+</ul>
+<p>对象头：</p>
+<ul>
+<li>对象运行时数据：哈希码，gc分代年龄，锁状态标志，线程持有的锁，偏向线程id，，偏向时间戳等。<br>32bit或64bit，官方称作“Mark Word”</li>
+<li>类型指针，指向类元数据的指针。虚拟机通过此指针确定对象是哪个类的实例。</li>
+</ul>
+<p>实例数据：</p>
+<ul>
+<li>对象真正存储的有效信息</li>
+<li>从父类继承的，子类定义的。都会记录下来。</li>
+<li>存储顺序受到虚拟机分配策略参数和字段在java源码中定义顺序的影响</li>
+<li>hotspot默认分配策略：longs/doubles、ints、shorts、chars、bytes、booleans、oops（ordinary object pointers），相同宽带的字段总是分配到一起。在满足此前提的情况下，父类中的变量会出现在子类之前。</li>
+<li>若CompactFields参数设为true，默认为true，则子类中较窄的变量也可能会插入到父类变量的空隙之中。</li>
+</ul>
+<p>对齐填充</p>
+<ul>
+<li>仅起到占位符的作用。hotspot要求对象qi’shi起始地址必须是8字节的整数倍。即对象大小必须是8的整数倍。</li>
+</ul>
+<h3 id="对象的访问定位"><a href="#对象的访问定位" class="headerlink" title="对象的访问定位"></a>对象的访问定位</h3><ul>
+<li>句柄</li>
+<li>直接指针（hotspot使用的方式）</li>
+</ul>
+<p>句柄：</p>
+<ul>
+<li>java堆中需要划分一块内存来作为句柄池。</li>
+<li>对象指针reference中存储的是对象句柄地址</li>
+<li>句柄中包含对象实例数据与类型数据两个地址</li>
+<li>对象移动时，只改变句柄中的实例数据指针，reference本身不需要修改</li>
+</ul>
+<p>直接指针：</p>
+<ul>
+<li>reference存储的是对象的真实地址</li>
+<li>java堆对象中需要考虑放置类型数据的相关信息</li>
+<li>速度更快，节省了一次指针定位开销。由于对象访问非常频繁，这类开销也不小</li>
+</ul>
+<h2 id="其他-2"><a href="#其他-2" class="headerlink" title="其他"></a>其他</h2><p>EMA：eclipse memory analyzer：分析dump出的堆转储快照</p>
+<p>String.intern()<br>jdk1.6及以前，该方法会将首次遇到的字符串复制到永久代中，返回的也是永久代中这个字符串实例的引用。<br>jdk1.7以后，不会再复制实例，只是在常量池中记录首次出现的实例引用</p>
+<h1 id="第三章-垃圾收集器与内存分配策略"><a href="#第三章-垃圾收集器与内存分配策略" class="headerlink" title="第三章 垃圾收集器与内存分配策略"></a>第三章 垃圾收集器与内存分配策略</h1><p>程序计数器，虚拟机栈，本地方法栈：随线程生，随线程灭。<br>这些区域不需要过多考虑回收问题。</p>
+<p>垃圾收集器主要关注的是堆和方法区。</p>
+<h3 id="对象存活检测算法"><a href="#对象存活检测算法" class="headerlink" title="对象存活检测算法"></a>对象存活检测算法</h3><ul>
+<li>引用计数 ：无法解决循环引用问题</li>
+<li>可达性分析算法：以gc roots的对象作为起始点，向下搜索。</li>
+</ul>
+<p>GC roots：</p>
+<ul>
+<li>虚拟机栈</li>
+<li>方法区中静态属性引用的对象</li>
+<li>方法区中常量引用的对象</li>
+<li>本地方法栈中JNI引用的对象</li>
+</ul>
+<p>引用分类：</p>
+<ul>
+<li>强引用，默认。引用存在时，不会回收</li>
+<li>软引用。描述还有用但是非必需的对象。内存溢出之前，进行回收</li>
+<li>弱引用。使用WeakReference类来实现。生命周期在xia下一次垃圾收集之前。</li>
+<li>虚引用。使用PhantonReference类来实现。</li>
+</ul>
+<p>不可达的对象，也并非“非死不可”。在finalize（）方法中，可以把this参数赋值给某个变量，就保存下了引用。</p>
+<h3 id="回收方法区"><a href="#回收方法区" class="headerlink" title="回收方法区"></a>回收方法区</h3><p>主要回收废弃常量和无用的类。</p>
+<p>回收类，条件相当苛刻：</p>
+<ul>
+<li>不存在类的实例</li>
+<li>类的classloader已回收</li>
+<li>class对象没有被引用，没有通过反射访问该类的方法</li>
+</ul>
+<p>即使满足以上条件，进说明类对象“可以回收”，但也不一定会回收</p>
+<h3 id="GC算法"><a href="#GC算法" class="headerlink" title="GC算法"></a>GC算法</h3><ul>
+<li>标记-清除算法：标记和清除的效率都不高；产生内存碎片</li>
+<li>复制算法：实现简单，运行高效。需要额外内存空间进行担保，内存利用率低，浪费50%空间</li>
+<li>标记-整理算法：先标记，后整理，较少内存碎片问题</li>
+<li>分代收集算法</li>
+</ul>
+<h3 id="HotSpot的算法实现"><a href="#HotSpot的算法实现" class="headerlink" title="HotSpot的算法实现"></a>HotSpot的算法实现</h3><p>枚举根节点</p>
+<ul>
+<li>使用可达性分析方法，时间消耗很大，并且会产生gc停顿。</li>
+<li>可达性分析需要确保一致性，分析过程中不可以出现引用关系变化的情况，因此gc时会暂停所有java执行线程，即stop the world.</li>
+<li>java虚拟机基本都采用准确是gc，虚拟机有办法直接得知哪些地方存放着对象引用。</li>
+<li>hotspot的实现中，使用OopMap的数据结构记录引用信息。可以快速完成gc roots的枚举</li>
+</ul>
+<p>安全点</p>
+<ul>
+<li>hotspot并没有为每条指令都生成OopMap（过于占用空间），只在特定位置记录了这些信息，这些位置称为“安全点”</li>
+<li>程序在运行时，只有到达安全点是才能停顿下来，执行gc</li>
+</ul>
+<p>安全区域</p>
+<ul>
+<li>sleep状态的线程，无法到达安全点。无法gc，需要安全区域来解决</li>
+<li>安全区域位于一段代码之中，引用关系不会发生变化，在此区域任何地方开始gc都是安全的</li>
+</ul>
+<h3 id="垃圾收集器"><a href="#垃圾收集器" class="headerlink" title="垃圾收集器"></a>垃圾收集器</h3><ul>
+<li>Serial收集器。单线程收集，gc是暂停其他所有线程。效率高。client模式下虚拟机的默认新生代收集器。client模式，内存一般100M左右，不会太大，延迟不到100ms，基本可接受。</li>
+<li>ParNew收集器。Serial的多线程版本。使用多个线程执行gc。stop the world。其他与Serial类似。运行在server模式下首选的新生代收集器，主要是因为只有它能与VMS收集器配合工作。单cpu时，比serial要差，适合多cpu环镜</li>
+<li>Parallel Scavenge。关注点在吞吐量，而不是减小stop world时间。吞吐量=运行用户线程时间/(用户线程+gc线程)</li>
+<li>Serial Old 收集器。Serial收集器的老年代版本。单线程，标记-整理算法。client模式下使用</li>
+<li>Parallel Old收集器。parallel老年代版本，标记-整理算法。</li>
+<li>CMS收集器。以获取最短回收停顿时间为目标。标记-清除算法。</li>
+<li>G1收集器。gc技术最前沿成果。面向服务器。hotspot希望未来它可替换CMS。</li>
+</ul>
+<h3 id="CMS"><a href="#CMS" class="headerlink" title="CMS"></a>CMS</h3><p>工作步骤：</p>
+<ol>
+<li>初始标记。stop world，但会很快</li>
+<li>并发标记。stop world,很快</li>
+<li>重新标记</li>
+<li>并发清除</li>
+</ol>
+<p>优点：并发手机，低停顿<br>缺点：对cpu资源敏感，（少于4核时，性能慢）。内存碎片（标记-清除算法）。无法处理浮动垃圾。</p>
+<h3 id="其他-3"><a href="#其他-3" class="headerlink" title="其他"></a>其他</h3><p>并发和并行<br>gc并行：多个gc线程并行工作，用户线程等待<br>gc并发：用户线程，gc线程同时执行（不一定并行，可能交替执行）</p>
+<p>新生代GC（Minor GC）：频繁，快速<br>老年代GC（Major GC/Full GC）：比Minor GC慢10倍左右 </p>
+<h2 id="内存分配与回收策略"><a href="#内存分配与回收策略" class="headerlink" title="内存分配与回收策略"></a>内存分配与回收策略</h2><ul>
+<li>对象优先在eden分配。eden无足够空间，触发一次Minor GC</li>
+<li>大对象直接进入老年代</li>
+<li>长期存活对象进入老年代</li>
+<li>动态对象年龄判定。虚拟机不强制必须达到年龄才能晋升老年代，survivor中相同年龄所有对象大小的综合大于survivor空间一半时，也可直接进入老年代</li>
+<li>空间分配担保</li>
+</ul>
+<h1 id="第四章-虚拟机性能监控工具与故障处理工具"><a href="#第四章-虚拟机性能监控工具与故障处理工具" class="headerlink" title="第四章 虚拟机性能监控工具与故障处理工具"></a>第四章 虚拟机性能监控工具与故障处理工具</h1><h2 id="jdk命令行工具"><a href="#jdk命令行工具" class="headerlink" title="jdk命令行工具"></a>jdk命令行工具</h2><p>大多数是jdk/lib/tools.jar类库的一层包装，主要功能在tools类库中实现。因此命令行工具的可执行文件大小都在27kb左右。</p>
+<ul>
+<li>jps：查看本机所有java虚拟机进程</li>
+<li>jstat：收集虚拟机各方面的运行数据</li>
+<li>jinfo：显示虚拟机配置信息</li>
+<li>jmap：生成虚拟机内存转储快照</li>
+<li>jhat：分析jmap生成的dump文件，会启一个webserver，分析内存</li>
+<li>jstack：虚拟机线程快照</li>
+<li>javap：反汇编</li>
+</ul>
+<p>jps -v : 输出虚拟机启动时的jvm参数<br>jstat -gc：监视java堆状况<br>jstat -gcutil：监视java堆，输出是占用百分比</p>
+<h2 id="jdk可视化工具"><a href="#jdk可视化工具" class="headerlink" title="jdk可视化工具"></a>jdk可视化工具</h2><ul>
+<li>jconsole</li>
+<li>VisualVM：功能强大。运行监视和故障处理。</li>
+</ul>
+<h2 id="jdk版本选择"><a href="#jdk版本选择" class="headerlink" title="jdk版本选择"></a>jdk版本选择</h2><p>版本升级也有不少性能倒退的案例，受程序，第三方包兼容性以及中间件的限制，在企业中升级jdk版本需要慎重考虑。</p>
 
       
 
@@ -306,7 +465,7 @@
     <a class="close js-modal-close" href="javascript:;"><i class="icon icon-close"></i></a>
     <p>扫一扫，分享到微信</p>
     <div class="wx-qrcode">
-      <img src="http://s.jiathis.com/qrcode.php?url=http://yoursite.com/2017/05/03/HashMap/" alt="微信分享二维码">
+      <img src="http://s.jiathis.com/qrcode.php?url=http://yoursite.com/2017/05/04/jvm/" alt="微信分享二维码">
     </div>
 </div>
 
@@ -321,7 +480,7 @@
 <nav id="article-nav">
   
   
-    <a href="/2017/05/03/THINKING-OF-FUN_reading_notes/" id="article-nav-older" class="article-nav-link-wrap">
+    <a href="/2017/05/04/THINKING-OF-FUN_reading_notes/" id="article-nav-older" class="article-nav-link-wrap">
       <div class="article-nav-title">思考的乐趣-读书笔记</div>
       <i class="icon-circle-right"></i>
     </a>
