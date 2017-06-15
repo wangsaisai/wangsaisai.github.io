@@ -4,9 +4,9 @@
   <subtitle>A blog of learn, reading, thinking, AI...</subtitle>
   <link href="/atom.xml" rel="self"/>
   
-  <link href="http://yoursite.com/"/>
+  <link href="https://wangsaisai.github.io/"/>
   <updated>2017-06-11T12:33:05.000Z</updated>
-  <id>http://yoursite.com/</id>
+  <id>https://wangsaisai.github.io/</id>
   
   <author>
     <name>Bamboo Liu</name>
@@ -17,8 +17,8 @@
   
   <entry>
     <title>未来简史 - 读书笔记</title>
-    <link href="http://yoursite.com/2017/06/11/future/"/>
-    <id>http://yoursite.com/2017/06/11/future/</id>
+    <link href="https://wangsaisai.github.io/2017/06/11/future/"/>
+    <id>https://wangsaisai.github.io/2017/06/11/future/</id>
     <published>2017-06-11T12:33:05.000Z</published>
     <updated>2017-06-11T12:33:05.000Z</updated>
     
@@ -57,8 +57,8 @@
   
   <entry>
     <title>人类简史 - 读书笔记</title>
-    <link href="http://yoursite.com/2017/05/17/humankind-history/"/>
-    <id>http://yoursite.com/2017/05/17/humankind-history/</id>
+    <link href="https://wangsaisai.github.io/2017/05/17/humankind-history/"/>
+    <id>https://wangsaisai.github.io/2017/05/17/humankind-history/</id>
     <published>2017-05-17T01:40:21.000Z</published>
     <updated>2017-05-17T01:40:21.000Z</updated>
     
@@ -354,8 +354,8 @@
   
   <entry>
     <title>JVM 简介</title>
-    <link href="http://yoursite.com/2017/05/04/jvm/"/>
-    <id>http://yoursite.com/2017/05/04/jvm/</id>
+    <link href="https://wangsaisai.github.io/2017/05/04/jvm/"/>
+    <id>https://wangsaisai.github.io/2017/05/04/jvm/</id>
     <published>2017-05-04T13:28:01.000Z</published>
     <updated>2017-05-04T13:28:01.000Z</updated>
     
@@ -608,8 +608,8 @@
   
   <entry>
     <title>思考的乐趣-读书笔记</title>
-    <link href="http://yoursite.com/2017/05/04/THINKING-OF-FUN_reading_notes/"/>
-    <id>http://yoursite.com/2017/05/04/THINKING-OF-FUN_reading_notes/</id>
+    <link href="https://wangsaisai.github.io/2017/05/04/THINKING-OF-FUN_reading_notes/"/>
+    <id>https://wangsaisai.github.io/2017/05/04/THINKING-OF-FUN_reading_notes/</id>
     <published>2017-05-04T13:26:52.000Z</published>
     <updated>2017-05-04T13:26:52.000Z</updated>
     
@@ -799,8 +799,8 @@
   
   <entry>
     <title>HashMap工作原理</title>
-    <link href="http://yoursite.com/2017/05/04/HashMap/"/>
-    <id>http://yoursite.com/2017/05/04/HashMap/</id>
+    <link href="https://wangsaisai.github.io/2017/05/04/HashMap/"/>
+    <id>https://wangsaisai.github.io/2017/05/04/HashMap/</id>
     <published>2017-05-04T13:26:23.000Z</published>
     <updated>2017-05-04T13:26:23.000Z</updated>
     
