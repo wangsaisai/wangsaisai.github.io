@@ -149,6 +149,61 @@
           <div id="js-content" class="content-ll">
             
   
+    <article id="post-standby_gc" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2017/10/08/standby_gc/">生成环镜Standby NameNode GC严重问题记录</a>
+    </h1>
+  
+
+        
+        <a href="/2017/10/08/standby_gc/" class="archive-article-date">
+  	<time datetime="2017-10-08T05:45:21.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2017-10-08</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>HDFS集群正常运行了将近一年，最近两个月出现一个诡异的问题：Standby节点严重的GC，Active节点正常。虽然不影响线上业务，但潜在的问题还是比较严重的，这里简单整理下问题定位和解决过程。</p>
+<h1 id="一、问题描述"><a href="#一、问题描述" class="headerlink" title="一、问题描述"></a>一、问题描述</h1><p>HDFS版本：2.5.2 （问题与版本无关）</p>
+<p>HDFS的active节点正常，Standby节点严重GC</p>
+<h1 id="二、集群的情况："><a href="#二、集群的情况：" class="headerlink" title="二、集群的情况："></a>二、集群的情况：</h1><p>HDFS集群数据量在几百TB，Namespace和Block数量在千万级别，每天增长大约几十GB的数据量。Namespace和Block的信息消耗的内存会略微有部分增长，但不会发生太大变化。</p>
+<h1 id="三、问题分析"><a href="#三、问题分析" class="headerlink" title="三、问题分析"></a>三、问题分析</h1><p>问题最诡异的地方在于，Standby节点GC异常，但Active节点GC正常。</p>
+<p>HDFS的内存主要消耗是Namespace和Block信息。这些信息是常住内存的，不会发生太大变动。<br>一般来讲，Active节点的任务量要超过Standby节点，但由于内存主要消耗在Namespace和Block信息，Namespace和Block信息在Active/Standby节点是完全一致的，所以两个节点的内存消耗应该接近，Active节点略微比Standby节点多消耗一些内存。</p>
+        
+          <a class="article-more-a" href="/2017/10/08/standby_gc/#more">more >></a>
+        
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2017/10/08/standby_gc/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+
+
+
+
+  
     <article id="post-Intelligent-Age" class="article article-type-post  article-index" itemscope itemprop="blogPost">
   <div class="article-inner">
     
