@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://wangsaisai.github.io/"/>
-  <updated>2017-10-08T05:45:21.000Z</updated>
+  <updated>2017-10-08T09:36:58.000Z</updated>
   <id>https://wangsaisai.github.io/</id>
   
   <author>
@@ -16,11 +16,11 @@
   <generator uri="http://hexo.io/">Hexo</generator>
   
   <entry>
-    <title>生成环镜Standby NameNode GC严重问题记录</title>
+    <title>生产环镜Standby NameNode GC严重问题记录</title>
     <link href="https://wangsaisai.github.io/2017/10/08/standby_gc/"/>
     <id>https://wangsaisai.github.io/2017/10/08/standby_gc/</id>
-    <published>2017-10-08T05:45:21.000Z</published>
-    <updated>2017-10-08T05:45:21.000Z</updated>
+    <published>2017-10-08T09:36:58.000Z</published>
+    <updated>2017-10-08T09:36:58.000Z</updated>
     
     <content type="html"><![CDATA[<p>HDFS集群正常运行了将近一年，最近两个月出现一个诡异的问题：Standby节点严重的GC，Active节点正常。虽然不影响线上业务，但潜在的问题还是比较严重的，这里简单整理下问题定位和解决过程。</p>
 <h1 id="一、问题描述"><a href="#一、问题描述" class="headerlink" title="一、问题描述"></a>一、问题描述</h1><p>HDFS版本：2.5.2 （问题与版本无关）</p>
