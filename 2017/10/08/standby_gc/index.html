@@ -15,7 +15,7 @@
 <meta property="og:site_name" content="Bamboo&#39;s Blog">
 <meta property="og:description" content="HDFS集群正常运行了将近一年，最近两个月出现一个诡异的问题：Standby节点严重的GC，Active节点正常。虽然不影响线上业务，但潜在的问题还是比较严重的，这里简单整理下问题定位和解决过程。 一、问题描述HDFS版本：2.5.2 （问题与版本无关） HDFS的active节点正常，Standby节点严重GC 二、集群的情况：HDFS集群数据量在几百TB，Namespace和Block数量在千">
 <meta property="og:image" content="https://wangsaisai.github.io/images/jmap.png">
-<meta property="og:updated_time" content="2017-10-08T09:36:58.000Z">
+<meta property="og:updated_time" content="2017-10-08T12:45:10.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="生产环镜Standby NameNode GC严重问题记录">
 <meta name="twitter:description" content="HDFS集群正常运行了将近一年，最近两个月出现一个诡异的问题：Standby节点严重的GC，Active节点正常。虽然不影响线上业务，但潜在的问题还是比较严重的，这里简单整理下问题定位和解决过程。 一、问题描述HDFS版本：2.5.2 （问题与版本无关） HDFS的active节点正常，Standby节点严重GC 二、集群的情况：HDFS集群数据量在几百TB，Namespace和Block数量在千">
@@ -166,7 +166,7 @@
 
         
         <a href="/2017/10/08/standby_gc/" class="archive-article-date">
-  	<time datetime="2017-10-08T09:36:58.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2017-10-08</time>
+  	<time datetime="2017-10-08T12:45:10.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2017-10-08</time>
 </a>
         
       </header>
@@ -215,7 +215,7 @@
 <p>然后在分析检查点的代码<br><figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">CheckPointer &#123;</div><div class="line">  <span class="function"><span class="keyword">void</span> <span class="title">doCheckpoint</span><span class="params">()</span> </span>&#123;</div><div class="line">      bnImage.saveFSImageInAllDirs(backupNode.getNamesystem(), txid);</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
 <p>上面代码，一层层看下去，会调到<br>DelegationTokenSecretManager的saveSecretManagerState()方法</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">synchronized</span> SecretManagerState <span class="title">saveSecretManagerState</span><span class="params">()</span> </span>&#123;</div><div class="line">...</div><div class="line">ArrayList&lt;SecretManagerSection.PersistToken&gt; tokens = Lists</div><div class="line">    .newArrayListWithCapacity(currentTokens.size());</div><div class="line">...</div><div class="line"><span class="keyword">for</span> (Entry&lt;DelegationTokenIdentifier, DelegationTokenInformation&gt; e : currentTokens</div><div class="line">   .entrySet()) &#123;</div><div class="line"> DelegationTokenIdentifier id = e.getKey();</div><div class="line"> SecretManagerSection.PersistToken.Builder b = SecretManagerSection.PersistToken</div><div class="line">     .newBuilder().setOwner(id.getOwner().toString())</div><div class="line">     .setRenewer(id.getRenewer().toString())</div><div class="line">     .setRealUser(id.getRealUser().toString())</div><div class="line">     .setIssueDate(id.getIssueDate()).setMaxDate(id.getMaxDate())</div><div class="line">     .setSequenceNumber(id.getSequenceNumber())</div><div class="line">     .setMasterKeyId(id.getMasterKeyId())</div><div class="line">     .setExpiryDate(e.getValue().getRenewDate());</div><div class="line"> tokens.add(b.build());       <span class="comment">//tokens太大，所以这部分内存直接进入old区，minor gc无法回收</span></div><div class="line">&#125;</div><div class="line">...</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>通过log发现，currentTokens数量在千万级别。在做检查点时，这些tokens会转化成PersistToken,以方便将tokens序列化到fsimage中。检查点默认每个小时都会执行一次（可以配置成其他值），当editlog数量达到1百万时，也会触发检查点任务。周期性的检查点任务，导致了Standby节点gc严重的问题。</p>
+<p>通过log发现，currentTokens数量在千万级别。在做检查点时，这些tokens会转化成PersistToken,以方便将tokens序列化到fsimage中。统计下来，PersistToken会占用4-5GB的内存，这些内存超出了eden区的大小，因此会被直接存入old区，old区会快速的增长4-5GB，容易触发CMS进行回收，回收过程甚至可能导致内存不足，因此引发fullgc导致的STW（stop the world）。 检查点默认每个小时都会执行一次（可以配置成其他值），当editlog数量达到1百万时，也会触发检查点任务。周期性的检查点任务，导致了Standby节点gc严重的问题。</p>
 <p>所以，Standby节点异常的原因就是因为tokens太多了，但问题并没有结束，tokens从哪里来的，为何产生这么多token，token如何回收？</p>
 <p>tokens的来源是HDFS上层应用产生的，此处暂时不讲解这个问题（稍后笔者可能会在写篇博文进行介绍）。</p>
 <p>tokens的回收有两种方式</p>
