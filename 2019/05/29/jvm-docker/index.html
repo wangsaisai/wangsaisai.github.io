@@ -6,14 +6,18 @@
   <meta name="renderer" content="webkit">
   <meta http-equiv="X-UA-Compatible" content="IE=edge" >
   <link rel="dns-prefetch" href="https://wangsaisai.github.io">
-  <title>Archives | Bamboo&#39;s Blog</title>
+  <title>jvm improve docker container detection and resource configuration usage | Bamboo&#39;s Blog</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta property="og:type" content="website">
-<meta property="og:title" content="Bamboo&#39;s Blog">
-<meta property="og:url" content="https://wangsaisai.github.io/archives/index.html">
+  <meta name="description" content="backgroundJava startup normally queries the operating system in order to setup runtime defaults for things such as the number of GC threads and default memory limits. While in docker container, JVM ca">
+<meta property="og:type" content="article">
+<meta property="og:title" content="jvm improve docker container detection and resource configuration usage">
+<meta property="og:url" content="https://wangsaisai.github.io/2019/05/29/jvm-docker/index.html">
 <meta property="og:site_name" content="Bamboo&#39;s Blog">
+<meta property="og:description" content="backgroundJava startup normally queries the operating system in order to setup runtime defaults for things such as the number of GC threads and default memory limits. While in docker container, JVM ca">
+<meta property="og:updated_time" content="2019-05-29T15:29:26.662Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Bamboo&#39;s Blog">
+<meta name="twitter:title" content="jvm improve docker container detection and resource configuration usage">
+<meta name="twitter:description" content="backgroundJava startup normally queries the operating system in order to setup runtime defaults for things such as the number of GC threads and default memory limits. While in docker container, JVM ca">
   
     <link rel="alternative" href="/atom.xml" title="Bamboo&#39;s Blog" type="application/atom+xml">
   
@@ -147,316 +151,243 @@
             <canvas data-colors="#eaeaea" data-sectionHeight="100" data-contentId="js-content" id="myCanvas1" class="anm-canvas"></canvas>
           </div>
           <div id="js-content" class="content-ll">
-            
+            <article id="post-jvm-docker" class="article article-type-post " itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
   
+    <h1 class="article-title" itemprop="name">
+      jvm improve docker container detection and resource configuration usage
+    </h1>
   
-    
-    
-      
-      
-      <section class="archives-wrap">
-        <div class="archive-year-wrap">
-          <a href="/archives/2019" class="archive-year">2019</a>
-        </div>
-        <div class="archives">
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2019/05/29/jvm-docker/" class="archive-article-date">
+
+        
+        <a href="/2019/05/29/jvm-docker/" class="archive-article-date">
   	<time datetime="2019-05-29T15:29:26.662Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-05-29</time>
 </a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2019/05/29/jvm-docker/">jvm improve docker container detection and resource configuration usage</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-          
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
+        
+      </header>
     
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2019/05/23/distribute_theory/" class="archive-article-date">
-  	<time datetime="2019-05-23T13:23:25.672Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-05-23</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2019/05/23/distribute_theory/">分布式系统相关理论</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-          
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-    
-    
+    <div class="article-entry" itemprop="articleBody">
       
-        </div></section>
+        <h3 id="background"><a href="#background" class="headerlink" title="background"></a>background</h3><p>Java startup normally queries the operating system in order to setup runtime defaults for things such as the number of GC threads and default memory limits.</p>
+<p>While in docker container, JVM can’t get the resource limit info.</p>
+<p>This problem had been fixed in JDK8:8u191</p>
+<p>This article make a test for the new feature</p>
+<a id="more"></a>
+<h3 id="VM-info"><a href="#VM-info" class="headerlink" title="VM info"></a>VM info</h3><blockquote>
+<p>a linux vm in google cloud, with 6 vCPUS, 20GB memory</p>
+</blockquote>
+<h3 id="Test-In-VM"><a href="#Test-In-VM" class="headerlink" title="Test In VM"></a>Test In VM</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line">bamboo@privacy:~$ free -g</div><div class="line">total used free shared buff/cache available</div><div class="line">Mem: 19 6 0 0 13 12</div><div class="line">Swap: 0 0 0</div><div class="line">bamboo@privacy:~$ cat /proc/cpuinfo| grep <span class="string">"processor"</span>| wc <span class="_">-l</span></div><div class="line">6</div><div class="line">bamboo@privacy:~$ java -version</div><div class="line">java version <span class="string">"1.8.0_171"</span></div><div class="line">Java(TM) SE Runtime Environment (build 1.8.0_171-b11)</div><div class="line">Java HotSpot(TM) 64-Bit Server VM (build 25.171-b11, mixed mode)</div><div class="line">bamboo@privacy:~$ java -XX:+PrintFlagsFinal | grep -E <span class="string">'InitialHeapSize|MaxHeapSize'</span></div><div class="line">uintx InitialHeapSize := 329252864 &#123;product&#125;</div><div class="line">uintx MaxHeapSize := 5263851520 &#123;product&#125;</div><div class="line">bamboo@privacy:~$ java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</div><div class="line">uintx ParallelGCThreads = 6 &#123;product&#125;</div></pre></td></tr></table></figure>
+<h3 id="Test-in-docker-container-openjdk-8u181-without-resource-limit"><a href="#Test-in-docker-container-openjdk-8u181-without-resource-limit" class="headerlink" title="Test in docker container (openjdk:8u181) without resource limit"></a>Test in docker container (openjdk:8u181) without resource limit</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line">bamboo@privacy:~$ docker run -ti openjdk:8u181-jdk</div><div class="line">root@c559e42aeae2:/<span class="comment"># free -g</span></div><div class="line">total used free shared buff/cache available</div><div class="line">Mem: 19 6 0 0 12 12</div><div class="line">Swap: 0 0 0</div><div class="line">root@c559e42aeae2:/<span class="comment"># cat /proc/cpuinfo| grep "processor"| wc -l</span></div><div class="line">6</div><div class="line">root@c559e42aeae2:/<span class="comment"># java -version</span></div><div class="line">openjdk version <span class="string">"1.8.0_181"</span></div><div class="line">OpenJDK Runtime Environment (build 1.8.0_181-8u181-b13-2~deb9u1-b13)</div><div class="line">OpenJDK 64-Bit Server VM (build 25.181-b13, mixed mode)</div><div class="line">root@c559e42aeae2:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E 'InitialHeapSize|MaxHeapSize'</span></div><div class="line">uintx InitialHeapSize := 329252864 &#123;product&#125;</div><div class="line">uintx MaxHeapSize := 5263851520 &#123;product&#125;</div><div class="line">root@c559e42aeae2:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</span></div><div class="line">uintx ParallelGCThreads = 6 &#123;product&#125;</div></pre></td></tr></table></figure>
+<h3 id="Test-in-docker-container-openjdk-8u181-with-resource-limit"><a href="#Test-in-docker-container-openjdk-8u181-with-resource-limit" class="headerlink" title="Test in docker container (openjdk:8u181) with resource limit"></a>Test in docker container (openjdk:8u181) with resource limit</h3><blockquote>
+<p>8G memory, 2 cpus</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div></pre></td><td class="code"><pre><div class="line">bamboo@privacy:~$ docker run -it --cpus 2 -m 8g openjdk:8u181-jdk bash</div><div class="line">root@5d34cdeb3d5c:/<span class="comment">#</span></div><div class="line">root@5d34cdeb3d5c:/<span class="comment"># free -g</span></div><div class="line">total used free shared buff/cache available</div><div class="line">Mem: 19 6 0 0 12 12</div><div class="line">Swap: 0 0 0</div><div class="line">root@5d34cdeb3d5c:/<span class="comment"># cat /proc/cpuinfo| grep "processor"| wc -l</span></div><div class="line">6</div><div class="line">root@5d34cdeb3d5c:/<span class="comment"># java -version</span></div><div class="line">openjdk version <span class="string">"1.8.0_181"</span></div><div class="line">OpenJDK Runtime Environment (build 1.8.0_181-8u181-b13-2~deb9u1-b13)</div><div class="line">OpenJDK 64-Bit Server VM (build 25.181-b13, mixed mode)</div><div class="line">root@5d34cdeb3d5c:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E 'InitialHeapSize|MaxHeapSize'</span></div><div class="line">uintx InitialHeapSize := 329252864 &#123;product&#125;</div><div class="line">uintx MaxHeapSize := 5263851520 &#123;product&#125;</div><div class="line">root@5d34cdeb3d5c:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</span></div><div class="line">uintx ParallelGCThreads = 6 &#123;product&#125;</div></pre></td></tr></table></figure>
+<h3 id="Test-in-docker-container-openjdk-8u212-without-resource-limit"><a href="#Test-in-docker-container-openjdk-8u212-without-resource-limit" class="headerlink" title="Test in docker container (openjdk:8u212) without resource limit"></a>Test in docker container (openjdk:8u212) without resource limit</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line">bamboo@privacy:~$ docker run -ti openjdk:8u212-jdk</div><div class="line">root@9fd6c496e060:/<span class="comment"># free -g</span></div><div class="line">total used free shared buff/cache available</div><div class="line">Mem: 19 6 0 0 12 12</div><div class="line">Swap: 0 0 0</div><div class="line">root@9fd6c496e060:/<span class="comment"># cat /proc/cpuinfo| grep "processor"| wc -l</span></div><div class="line">6</div><div class="line">root@9fd6c496e060:/<span class="comment"># java -version</span></div><div class="line">openjdk version <span class="string">"1.8.0_212"</span></div><div class="line">OpenJDK Runtime Environment (build 1.8.0_212-b04)</div><div class="line">OpenJDK 64-Bit Server VM (build 25.212-b04, mixed mode)</div><div class="line">root@9fd6c496e060:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E 'InitialHeapSize|MaxHeapSize'</span></div><div class="line">uintx InitialHeapSize := 329252864 &#123;product&#125;</div><div class="line">uintx MaxHeapSize := 5263851520 &#123;product&#125;</div><div class="line">root@9fd6c496e060:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</span></div><div class="line">uintx ParallelGCThreads = 6 &#123;product&#125;</div></pre></td></tr></table></figure>
+<h3 id="Test-in-docker-container-openjdk-8u212-with-resource-limit"><a href="#Test-in-docker-container-openjdk-8u212-with-resource-limit" class="headerlink" title="Test in docker container (openjdk:8u212) with resource limit"></a>Test in docker container (openjdk:8u212) with resource limit</h3><blockquote>
+<p>8G memory, 2 cpus</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line">bamboo@privacy:~$ docker run -it --cpus 2 -m 8g openjdk:8u212-jdk bash</div><div class="line">root@6e90872b448b:/<span class="comment"># free -g</span></div><div class="line">total used free shared buff/cache available</div><div class="line">Mem: 19 6 0 0 12 12</div><div class="line">Swap: 0 0 0</div><div class="line">root@6e90872b448b:/<span class="comment"># cat /proc/cpuinfo| grep "processor"| wc -l</span></div><div class="line">6</div><div class="line">root@6e90872b448b:/<span class="comment"># java -version</span></div><div class="line">openjdk version <span class="string">"1.8.0_212"</span></div><div class="line">OpenJDK Runtime Environment (build 1.8.0_212-b04)</div><div class="line">OpenJDK 64-Bit Server VM (build 25.212-b04, mixed mode)</div><div class="line">root@6e90872b448b:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E 'InitialHeapSize|MaxHeapSize'</span></div><div class="line">uintx InitialHeapSize := 134217728 &#123;product&#125;</div><div class="line">uintx MaxHeapSize := 2147483648 &#123;product&#125;</div><div class="line">root@6e90872b448b:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</span></div><div class="line">uintx ParallelGCThreads = 2 &#123;product&#125;</div></pre></td></tr></table></figure>
+<h3 id="compare-table"><a href="#compare-table" class="headerlink" title="compare table"></a>compare table</h3><table>
+<thead>
+<tr>
+<th>env\command</th>
+<th>free -g</th>
+<th>cat /proc/cpuinfo</th>
+<th>jvm InitialHeapSize</th>
+<th>jvm MaxHeapSize</th>
+<th>jvm ParallelGCThreads</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>VM</td>
+<td>20G</td>
+<td>6</td>
+<td>329252864 (314M)</td>
+<td>5263851520 (4.9G)</td>
+<td>6</td>
+</tr>
+<tr>
+<td>docker (openjdk:8u181)</td>
+<td>20G</td>
+<td>6</td>
+<td>329252864</td>
+<td>5263851520</td>
+<td>6</td>
+</tr>
+<tr>
+<td>docker (openjdk:8u181) resource limit [cpu:2, memory:8G]</td>
+<td>20G</td>
+<td>6</td>
+<td>329252864</td>
+<td>5263851520</td>
+<td>6</td>
+</tr>
+<tr>
+<td>docker (openjdk:8u212)</td>
+<td>20G</td>
+<td>6</td>
+<td>329252864</td>
+<td>5263851520</td>
+<td>6</td>
+</tr>
+<tr>
+<td>docker (openjdk:8u181) resource limit [cpu:2, memory:8G]</td>
+<td>20G</td>
+<td>6</td>
+<td>134217728 (128M)</td>
+<td>2147483648 (2G)</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+<h3 id="conclusion"><a href="#conclusion" class="headerlink" title="conclusion"></a>conclusion</h3><ul>
+<li>openjdk:8u212 can get the resource limit in docker container</li>
+</ul>
+<h3 id="link"><a href="#link" class="headerlink" title="link"></a>link</h3><p>JDK-8146115 : Improve docker container detection and resource configuration usage <a href="https://bugs.java.com/bugdatabase/view_bug.do?bug_id=JDK-8146115" target="_blank" rel="external">https://bugs.java.com/bugdatabase/view_bug.do?bug_id=JDK-8146115</a></p>
+
+      
+
+      
+        <div class="page-reward">
+          <a href="javascript:;" class="page-reward-btn tooltip-top">
+            <div class="tooltip tooltip-east">
+            <span class="tooltip-item">
+              赏
+            </span>
+            <span class="tooltip-content">
+              <span class="tooltip-text">
+                <span class="tooltip-inner">
+                  <p class="reward-p"><i class="icon icon-quo-left"></i>谢谢你请我吃糖果<i class="icon icon-quo-right"></i></p>
+                  <div class="reward-box">
+                    
+                    
+                    <div class="reward-box-item">
+                      <img class="reward-img" src="/img/wechat.png">
+                      <span class="reward-type">微信</span>
+                    </div>
+                    
+                  </div>
+                </span>
+              </span>
+            </span>
+          </div>
+          </a>
+        </div>
+      
+    </div>
+    <div class="article-info article-info-index">
       
       
-      <section class="archives-wrap">
-        <div class="archive-year-wrap">
-          <a href="/archives/2018" class="archive-year">2018</a>
-        </div>
-        <div class="archives">
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2018/03/18/Stephen_William_Hawking/" class="archive-article-date">
-  	<time datetime="2018-03-18T15:11:07.736Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2018-03-18</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2018/03/18/Stephen_William_Hawking/">《大设计》读书笔记 -- 致敬霍金</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-          
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2018/02/09/java-9-turorial/" class="archive-article-date">
-  	<time datetime="2018-02-09T13:06:47.911Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2018-02-09</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2018/02/09/java-9-turorial/">java 9 turorial</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-          
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-    
-    
       
-        </div></section>
+
       
+
       
-      <section class="archives-wrap">
-        <div class="archive-year-wrap">
-          <a href="/archives/2017" class="archive-year">2017</a>
+        
+<div class="share-btn share-icons tooltip-left">
+  <div class="tooltip tooltip-east">
+    <span class="tooltip-item">
+      <a href="javascript:;" class="share-sns share-outer">
+        <i class="icon icon-share"></i>
+      </a>
+    </span>
+    <span class="tooltip-content">
+      <div class="share-wrap">
+        <div class="share-icons">
+          <a class="weibo share-sns" href="javascript:;" data-type="weibo">
+            <i class="icon icon-weibo"></i>
+          </a>
+          <a class="weixin share-sns wxFab" href="javascript:;" data-type="weixin">
+            <i class="icon icon-weixin"></i>
+          </a>
+          <a class="qq share-sns" href="javascript:;" data-type="qq">
+            <i class="icon icon-qq"></i>
+          </a>
+          <a class="douban share-sns" href="javascript:;" data-type="douban">
+            <i class="icon icon-douban"></i>
+          </a>
+          <a class="qzone share-sns" href="javascript:;" data-type="qzone">
+            <i class="icon icon-qzone"></i>
+          </a>
+          <a class="facebook share-sns" href="javascript:;" data-type="facebook">
+            <i class="icon icon-facebook"></i>
+          </a>
+          <a class="twitter share-sns" href="javascript:;" data-type="twitter">
+            <i class="icon icon-twitter"></i>
+          </a>
+          <a class="google share-sns" href="javascript:;" data-type="google">
+            <i class="icon icon-google"></i>
+          </a>
         </div>
-        <div class="archives">
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2017/10/08/standby_gc/" class="archive-article-date">
-  	<time datetime="2017-10-08T12:45:10.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2017-10-08</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2017/10/08/standby_gc/">生产环镜Standby NameNode GC严重问题记录</a>
-    </h1>
-  
+      </div>
+    </span>
+  </div>
+</div>
 
-        <div class="article-info info-on-right">
-          
-          
+<div class="page-modal wx-share js-wx-box">
+    <a class="close js-modal-close" href="javascript:;"><i class="icon icon-close"></i></a>
+    <p>扫一扫，分享到微信</p>
+    <div class="wx-qrcode">
+      <img src="http://s.jiathis.com/qrcode.php?url=https://wangsaisai.github.io/2019/05/29/jvm-docker/" alt="微信分享二维码">
+    </div>
+</div>
 
-        </div>
-        <div class="clearfix"></div>
-    </header>
+<div class="mask js-mask"></div>
+      
+      <div class="clearfix"></div>
+    </div>
   </div>
 </article>
+
   
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2017/07/15/Intelligent-Age/" class="archive-article-date">
-  	<time datetime="2017-07-15T02:42:44.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2017-07-15</time>
-</a>
-        </div>
-    	 
+<nav id="article-nav">
   
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2017/07/15/Intelligent-Age/">智能时代</a>
-    </h1>
+  
+    <a href="/2019/05/23/distribute_theory/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">分布式系统相关理论</div>
+      <i class="icon-circle-right"></i>
+    </a>
+  
+</nav>
+
+
+
+
+
+  
+  
   
 
-        <div class="article-info info-on-right">
-          
-          
+  
 
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
+  
+
   
     
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2017/06/11/future/" class="archive-article-date">
-  	<time datetime="2017-06-11T12:33:05.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2017-06-11</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2017/06/11/future/">未来简史 - 读书笔记</a>
-    </h1>
+<section class="comments" id="comments">
+    <div id="gitment_thread"></div>
+    <link rel="stylesheet" href="https://imsun.github.io/gitment/style/default.css">
+    <script src="https://imsun.github.io/gitment/dist/gitment.browser.js"></script>
+    <script>
+        var gitment = new Gitment({
+            owner: 'wangsaisai',
+            repo: 'wangsaisai.github.io',
+            oauth: {
+                client_id: '5acc8c6205717c43d700',
+                client_secret: '6295863b5e969af1fb821218b4c196adadb3c03a',
+            },
+        })
+        gitment.render('comments')
+    </script>
+</section>
+
+
   
 
-        <div class="article-info info-on-right">
-          
-          
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2017/05/17/humankind-history/" class="archive-article-date">
-  	<time datetime="2017-05-17T01:40:21.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2017-05-17</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2017/05/17/humankind-history/">人类简史 - 读书笔记</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-          
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2017/05/04/jvm/" class="archive-article-date">
-  	<time datetime="2017-05-04T13:28:01.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2017-05-04</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2017/05/04/jvm/">JVM 简介</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-          
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2017/05/04/THINKING-OF-FUN_reading_notes/" class="archive-article-date">
-  	<time datetime="2017-05-04T13:26:52.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2017-05-04</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2017/05/04/THINKING-OF-FUN_reading_notes/">思考的乐趣-读书笔记</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-          
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-  
-    </div></section>
-  
-
-    
-    <nav id="page-nav">
-      <span class="page-number current">1</span><a class="page-number" href="/archives/page/2/">2</a><a class="extend next" rel="next" href="/archives/page/2/">Next &raquo;</a>
-    </nav>
-  
 
 
           </div>
@@ -479,8 +410,8 @@
 	var yiliaConfig = {
 		mathjax: true,
 		isHome: false,
-		isPost: false,
-		isArchive: true,
+		isPost: true,
+		isArchive: false,
 		isTag: false,
 		isCategory: false,
 		open_in_new: false,

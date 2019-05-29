@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://wangsaisai.github.io/"/>
-  <updated>2019-05-23T13:26:17.715Z</updated>
+  <updated>2019-05-29T15:29:26.662Z</updated>
   <id>https://wangsaisai.github.io/</id>
   
   <author>
@@ -14,6 +14,104 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>jvm improve docker container detection and resource configuration usage</title>
+    <link href="https://wangsaisai.github.io/2019/05/29/jvm-docker/"/>
+    <id>https://wangsaisai.github.io/2019/05/29/jvm-docker/</id>
+    <published>2019-05-29T15:29:26.662Z</published>
+    <updated>2019-05-29T15:29:26.662Z</updated>
+    
+    <content type="html"><![CDATA[<h3 id="background"><a href="#background" class="headerlink" title="background"></a>background</h3><p>Java startup normally queries the operating system in order to setup runtime defaults for things such as the number of GC threads and default memory limits.</p>
+<p>While in docker container, JVM can’t get the resource limit info.</p>
+<p>This problem had been fixed in JDK8:8u191</p>
+<p>This article make a test for the new feature</p>
+<a id="more"></a>
+<h3 id="VM-info"><a href="#VM-info" class="headerlink" title="VM info"></a>VM info</h3><blockquote>
+<p>a linux vm in google cloud, with 6 vCPUS, 20GB memory</p>
+</blockquote>
+<h3 id="Test-In-VM"><a href="#Test-In-VM" class="headerlink" title="Test In VM"></a>Test In VM</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line">bamboo@privacy:~$ free -g</div><div class="line">total used free shared buff/cache available</div><div class="line">Mem: 19 6 0 0 13 12</div><div class="line">Swap: 0 0 0</div><div class="line">bamboo@privacy:~$ cat /proc/cpuinfo| grep <span class="string">"processor"</span>| wc <span class="_">-l</span></div><div class="line">6</div><div class="line">bamboo@privacy:~$ java -version</div><div class="line">java version <span class="string">"1.8.0_171"</span></div><div class="line">Java(TM) SE Runtime Environment (build 1.8.0_171-b11)</div><div class="line">Java HotSpot(TM) 64-Bit Server VM (build 25.171-b11, mixed mode)</div><div class="line">bamboo@privacy:~$ java -XX:+PrintFlagsFinal | grep -E <span class="string">'InitialHeapSize|MaxHeapSize'</span></div><div class="line">uintx InitialHeapSize := 329252864 &#123;product&#125;</div><div class="line">uintx MaxHeapSize := 5263851520 &#123;product&#125;</div><div class="line">bamboo@privacy:~$ java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</div><div class="line">uintx ParallelGCThreads = 6 &#123;product&#125;</div></pre></td></tr></table></figure>
+<h3 id="Test-in-docker-container-openjdk-8u181-without-resource-limit"><a href="#Test-in-docker-container-openjdk-8u181-without-resource-limit" class="headerlink" title="Test in docker container (openjdk:8u181) without resource limit"></a>Test in docker container (openjdk:8u181) without resource limit</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line">bamboo@privacy:~$ docker run -ti openjdk:8u181-jdk</div><div class="line">root@c559e42aeae2:/<span class="comment"># free -g</span></div><div class="line">total used free shared buff/cache available</div><div class="line">Mem: 19 6 0 0 12 12</div><div class="line">Swap: 0 0 0</div><div class="line">root@c559e42aeae2:/<span class="comment"># cat /proc/cpuinfo| grep "processor"| wc -l</span></div><div class="line">6</div><div class="line">root@c559e42aeae2:/<span class="comment"># java -version</span></div><div class="line">openjdk version <span class="string">"1.8.0_181"</span></div><div class="line">OpenJDK Runtime Environment (build 1.8.0_181-8u181-b13-2~deb9u1-b13)</div><div class="line">OpenJDK 64-Bit Server VM (build 25.181-b13, mixed mode)</div><div class="line">root@c559e42aeae2:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E 'InitialHeapSize|MaxHeapSize'</span></div><div class="line">uintx InitialHeapSize := 329252864 &#123;product&#125;</div><div class="line">uintx MaxHeapSize := 5263851520 &#123;product&#125;</div><div class="line">root@c559e42aeae2:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</span></div><div class="line">uintx ParallelGCThreads = 6 &#123;product&#125;</div></pre></td></tr></table></figure>
+<h3 id="Test-in-docker-container-openjdk-8u181-with-resource-limit"><a href="#Test-in-docker-container-openjdk-8u181-with-resource-limit" class="headerlink" title="Test in docker container (openjdk:8u181) with resource limit"></a>Test in docker container (openjdk:8u181) with resource limit</h3><blockquote>
+<p>8G memory, 2 cpus</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div></pre></td><td class="code"><pre><div class="line">bamboo@privacy:~$ docker run -it --cpus 2 -m 8g openjdk:8u181-jdk bash</div><div class="line">root@5d34cdeb3d5c:/<span class="comment">#</span></div><div class="line">root@5d34cdeb3d5c:/<span class="comment"># free -g</span></div><div class="line">total used free shared buff/cache available</div><div class="line">Mem: 19 6 0 0 12 12</div><div class="line">Swap: 0 0 0</div><div class="line">root@5d34cdeb3d5c:/<span class="comment"># cat /proc/cpuinfo| grep "processor"| wc -l</span></div><div class="line">6</div><div class="line">root@5d34cdeb3d5c:/<span class="comment"># java -version</span></div><div class="line">openjdk version <span class="string">"1.8.0_181"</span></div><div class="line">OpenJDK Runtime Environment (build 1.8.0_181-8u181-b13-2~deb9u1-b13)</div><div class="line">OpenJDK 64-Bit Server VM (build 25.181-b13, mixed mode)</div><div class="line">root@5d34cdeb3d5c:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E 'InitialHeapSize|MaxHeapSize'</span></div><div class="line">uintx InitialHeapSize := 329252864 &#123;product&#125;</div><div class="line">uintx MaxHeapSize := 5263851520 &#123;product&#125;</div><div class="line">root@5d34cdeb3d5c:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</span></div><div class="line">uintx ParallelGCThreads = 6 &#123;product&#125;</div></pre></td></tr></table></figure>
+<h3 id="Test-in-docker-container-openjdk-8u212-without-resource-limit"><a href="#Test-in-docker-container-openjdk-8u212-without-resource-limit" class="headerlink" title="Test in docker container (openjdk:8u212) without resource limit"></a>Test in docker container (openjdk:8u212) without resource limit</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line">bamboo@privacy:~$ docker run -ti openjdk:8u212-jdk</div><div class="line">root@9fd6c496e060:/<span class="comment"># free -g</span></div><div class="line">total used free shared buff/cache available</div><div class="line">Mem: 19 6 0 0 12 12</div><div class="line">Swap: 0 0 0</div><div class="line">root@9fd6c496e060:/<span class="comment"># cat /proc/cpuinfo| grep "processor"| wc -l</span></div><div class="line">6</div><div class="line">root@9fd6c496e060:/<span class="comment"># java -version</span></div><div class="line">openjdk version <span class="string">"1.8.0_212"</span></div><div class="line">OpenJDK Runtime Environment (build 1.8.0_212-b04)</div><div class="line">OpenJDK 64-Bit Server VM (build 25.212-b04, mixed mode)</div><div class="line">root@9fd6c496e060:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E 'InitialHeapSize|MaxHeapSize'</span></div><div class="line">uintx InitialHeapSize := 329252864 &#123;product&#125;</div><div class="line">uintx MaxHeapSize := 5263851520 &#123;product&#125;</div><div class="line">root@9fd6c496e060:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</span></div><div class="line">uintx ParallelGCThreads = 6 &#123;product&#125;</div></pre></td></tr></table></figure>
+<h3 id="Test-in-docker-container-openjdk-8u212-with-resource-limit"><a href="#Test-in-docker-container-openjdk-8u212-with-resource-limit" class="headerlink" title="Test in docker container (openjdk:8u212) with resource limit"></a>Test in docker container (openjdk:8u212) with resource limit</h3><blockquote>
+<p>8G memory, 2 cpus</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line">bamboo@privacy:~$ docker run -it --cpus 2 -m 8g openjdk:8u212-jdk bash</div><div class="line">root@6e90872b448b:/<span class="comment"># free -g</span></div><div class="line">total used free shared buff/cache available</div><div class="line">Mem: 19 6 0 0 12 12</div><div class="line">Swap: 0 0 0</div><div class="line">root@6e90872b448b:/<span class="comment"># cat /proc/cpuinfo| grep "processor"| wc -l</span></div><div class="line">6</div><div class="line">root@6e90872b448b:/<span class="comment"># java -version</span></div><div class="line">openjdk version <span class="string">"1.8.0_212"</span></div><div class="line">OpenJDK Runtime Environment (build 1.8.0_212-b04)</div><div class="line">OpenJDK 64-Bit Server VM (build 25.212-b04, mixed mode)</div><div class="line">root@6e90872b448b:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E 'InitialHeapSize|MaxHeapSize'</span></div><div class="line">uintx InitialHeapSize := 134217728 &#123;product&#125;</div><div class="line">uintx MaxHeapSize := 2147483648 &#123;product&#125;</div><div class="line">root@6e90872b448b:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</span></div><div class="line">uintx ParallelGCThreads = 2 &#123;product&#125;</div></pre></td></tr></table></figure>
+<h3 id="compare-table"><a href="#compare-table" class="headerlink" title="compare table"></a>compare table</h3><table>
+<thead>
+<tr>
+<th>env\command</th>
+<th>free -g</th>
+<th>cat /proc/cpuinfo</th>
+<th>jvm InitialHeapSize</th>
+<th>jvm MaxHeapSize</th>
+<th>jvm ParallelGCThreads</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>VM</td>
+<td>20G</td>
+<td>6</td>
+<td>329252864 (314M)</td>
+<td>5263851520 (4.9G)</td>
+<td>6</td>
+</tr>
+<tr>
+<td>docker (openjdk:8u181)</td>
+<td>20G</td>
+<td>6</td>
+<td>329252864</td>
+<td>5263851520</td>
+<td>6</td>
+</tr>
+<tr>
+<td>docker (openjdk:8u181) resource limit [cpu:2, memory:8G]</td>
+<td>20G</td>
+<td>6</td>
+<td>329252864</td>
+<td>5263851520</td>
+<td>6</td>
+</tr>
+<tr>
+<td>docker (openjdk:8u212)</td>
+<td>20G</td>
+<td>6</td>
+<td>329252864</td>
+<td>5263851520</td>
+<td>6</td>
+</tr>
+<tr>
+<td>docker (openjdk:8u181) resource limit [cpu:2, memory:8G]</td>
+<td>20G</td>
+<td>6</td>
+<td>134217728 (128M)</td>
+<td>2147483648 (2G)</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+<h3 id="conclusion"><a href="#conclusion" class="headerlink" title="conclusion"></a>conclusion</h3><ul>
+<li>openjdk:8u212 can get the resource limit in docker container</li>
+</ul>
+<h3 id="link"><a href="#link" class="headerlink" title="link"></a>link</h3><p>JDK-8146115 : Improve docker container detection and resource configuration usage <a href="https://bugs.java.com/bugdatabase/view_bug.do?bug_id=JDK-8146115" target="_blank" rel="external">https://bugs.java.com/bugdatabase/view_bug.do?bug_id=JDK-8146115</a></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h3 id=&quot;background&quot;&gt;&lt;a href=&quot;#background&quot; class=&quot;headerlink&quot; title=&quot;background&quot;&gt;&lt;/a&gt;background&lt;/h3&gt;&lt;p&gt;Java startup normally queries the operating system in order to setup runtime defaults for things such as the number of GC threads and default memory limits.&lt;/p&gt;
+&lt;p&gt;While in docker container, JVM can’t get the resource limit info.&lt;/p&gt;
+&lt;p&gt;This problem had been fixed in JDK8:8u191&lt;/p&gt;
+&lt;p&gt;This article make a test for the new feature&lt;/p&gt;
+    
+    </summary>
+    
+    
+  </entry>
   
   <entry>
     <title>分布式系统相关理论</title>
