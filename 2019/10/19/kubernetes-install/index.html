@@ -6,14 +6,18 @@
   <meta name="renderer" content="webkit">
   <meta http-equiv="X-UA-Compatible" content="IE=edge" >
   <link rel="dns-prefetch" href="https://wangsaisai.github.io">
-  <title>Archives: 2019 | Bamboo&#39;s Blog</title>
+  <title>使用kubeadm创建kubernetes单主集群 - ubuntu | Bamboo&#39;s Blog</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta property="og:type" content="website">
-<meta property="og:title" content="Bamboo&#39;s Blog">
-<meta property="og:url" content="https://wangsaisai.github.io/archives/2019/index.html">
+  <meta name="description" content="use kubeadmin install k8s in ubuntu准备环境 至少2台机器或虚拟机（一个master，多个worker） 每台机器 2 GB 内存或更多 每台机器 2 CPU 核心或更多 集群中的所有机器的网络彼此均能相互连接(公网和内网都可以) 禁用 Swap 交换分区">
+<meta property="og:type" content="article">
+<meta property="og:title" content="使用kubeadm创建kubernetes单主集群 - ubuntu">
+<meta property="og:url" content="https://wangsaisai.github.io/2019/10/19/kubernetes-install/index.html">
 <meta property="og:site_name" content="Bamboo&#39;s Blog">
+<meta property="og:description" content="use kubeadmin install k8s in ubuntu准备环境 至少2台机器或虚拟机（一个master，多个worker） 每台机器 2 GB 内存或更多 每台机器 2 CPU 核心或更多 集群中的所有机器的网络彼此均能相互连接(公网和内网都可以) 禁用 Swap 交换分区">
+<meta property="og:updated_time" content="2019-10-19T02:25:05.022Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Bamboo&#39;s Blog">
+<meta name="twitter:title" content="使用kubeadm创建kubernetes单主集群 - ubuntu">
+<meta name="twitter:description" content="use kubeadmin install k8s in ubuntu准备环境 至少2台机器或虚拟机（一个master，多个worker） 每台机器 2 GB 内存或更多 每台机器 2 CPU 核心或更多 集群中的所有机器的网络彼此均能相互连接(公网和内网都可以) 禁用 Swap 交换分区">
   
     <link rel="alternative" href="/atom.xml" title="Bamboo&#39;s Blog" type="application/atom+xml">
   
@@ -147,103 +151,188 @@
             <canvas data-colors="#eaeaea" data-sectionHeight="100" data-contentId="js-content" id="myCanvas1" class="anm-canvas"></canvas>
           </div>
           <div id="js-content" class="content-ll">
-            
+            <article id="post-kubernetes-install" class="article article-type-post " itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
   
+    <h1 class="article-title" itemprop="name">
+      使用kubeadm创建kubernetes单主集群 - ubuntu
+    </h1>
   
-    
-    
-      
-      
-      <section class="archives-wrap">
-        <div class="archive-year-wrap">
-          <a href="/archives/2019" class="archive-year">2019</a>
-        </div>
-        <div class="archives">
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2019/10/19/kubernetes-install/" class="archive-article-date">
+
+        
+        <a href="/2019/10/19/kubernetes-install/" class="archive-article-date">
   	<time datetime="2019-10-19T02:20:42.641Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-10-19</time>
 </a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2019/10/19/kubernetes-install/">使用kubeadm创建kubernetes单主集群 - ubuntu</a>
-    </h1>
-  
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h1 id="use-kubeadmin-install-k8s-in-ubuntu"><a href="#use-kubeadmin-install-k8s-in-ubuntu" class="headerlink" title="use kubeadmin install k8s in ubuntu"></a>use kubeadmin install k8s in ubuntu</h1><h3 id="准备环境"><a href="#准备环境" class="headerlink" title="准备环境"></a>准备环境</h3><ul>
+<li>至少2台机器或虚拟机（一个master，多个worker）</li>
+<li>每台机器 2 GB 内存或更多</li>
+<li>每台机器 2 CPU 核心或更多</li>
+<li>集群中的所有机器的网络彼此均能相互连接(公网和内网都可以)</li>
+<li>禁用 Swap 交换分区</li>
+</ul>
+<a id="more"></a>
+<h3 id="安装软件"><a href="#安装软件" class="headerlink" title="安装软件"></a>安装软件</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"># 每台机器都需要安装</div><div class="line">apt-get update &amp;&amp; apt-get install -y apt-transport-https curl</div><div class="line">curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -</div><div class="line">cat &lt;&lt;EOF &gt;/etc/apt/sources.list.d/kubernetes.list</div><div class="line">deb https://apt.kubernetes.io/ kubernetes-xenial main</div><div class="line">EOF</div><div class="line">apt-get update</div><div class="line">apt-get install -y kubelet kubeadm kubectl</div><div class="line">apt-mark hold kubelet kubeadm kubectl</div></pre></td></tr></table></figure>
+<h3 id="master-node-初始化"><a href="#master-node-初始化" class="headerlink" title="master node 初始化"></a>master node 初始化</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"># 选择一台作为 master</div><div class="line"># 在 master 上执行</div><div class="line">kubeadm init</div></pre></td></tr></table></figure>
+<p>执行成功后，会输出 token 。<br>其他worker 使用此 token 加入到 kubernetes 集群。</p>
+<blockquote>
+<p>Then you can join any number of worker nodes by running the following on each as root:<br>kubeadm join 10.176.7.9:6443 –token hh6cfg.ijmppt2fpry2dqr9 \<br>–discovery-token-ca-cert-hash sha256:c862aa8398c66300678371f1276cf6ffe02d589a17dc722c4eedb9ccd1db0282</p>
+</blockquote>
+<h3 id="worker-node-加入-kubernetes-集群"><a href="#worker-node-加入-kubernetes-集群" class="headerlink" title="worker node 加入 kubernetes 集群"></a>worker node 加入 kubernetes 集群</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"># 在worker 上执行</div><div class="line">kubeadm join 10.176.7.9:6443 --token hh6cfg.ijmppt2fpry2dqr9 \</div><div class="line">--discovery-token-ca-cert-hash sha256:c862aa8398c66300678371f1276cf6ffe02d589a17dc722c4eedb9ccd1db0282</div></pre></td></tr></table></figure>
+<p><em>token 24小时后会过期，可重新获取token</em><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line"># 重新生成token</div><div class="line">kubeadm token create</div><div class="line"># 获取ca证书sha256编码hash值</div><div class="line">openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2&gt;/dev/null | openssl dgst -sha256 -hex | sed &apos;s/^.* //&apos;</div><div class="line"># join到集群</div><div class="line">kubeadm join 10.176.7.9:6443 --token &#123;token&#125; --discovery-token-ca-cert-hash sha256:&#123;hash&#125;</div></pre></td></tr></table></figure></p>
+<h3 id="安装Pod网络插件-weave"><a href="#安装Pod网络插件-weave" class="headerlink" title="安装Pod网络插件 - weave"></a>安装Pod网络插件 - weave</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line"># 在 master 上执行</div><div class="line">export kubever=$(kubectl version | base64 | tr -d &apos;\n&apos;)</div><div class="line">wget https://cloud.weave.works/k8s/net?k8s-version=$kubever -O weave.yaml</div><div class="line">kubectl apply -f weave.yaml</div></pre></td></tr></table></figure>
+<h3 id="验证是否安装成功"><a href="#验证是否安装成功" class="headerlink" title="验证是否安装成功"></a>验证是否安装成功</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">kubernetes@km:~$ kubectl get nodes</div><div class="line">NAME STATUS ROLES AGE VERSION</div><div class="line">km Ready master 58m v1.16.2</div><div class="line">kw1 Ready &lt;none&gt; 41m v1.16.2</div><div class="line">kw2 Ready &lt;none&gt; 39m v1.16.2</div></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div></pre></td><td class="code"><pre><div class="line">kubernetes@km:~$ kubectl get pods --all-namespaces -o wide</div><div class="line">NAMESPACE NAME READY STATUS RESTARTS AGE IP NODE NOMINATED NODE READINESS GATES</div><div class="line">kube-system coredns-5644d7b6d9-pfp4r 1/1 Running 0 58m 10.32.0.2 km &lt;none&gt; &lt;none&gt;</div><div class="line">kube-system coredns-5644d7b6d9-w98kd 1/1 Running 0 58m 10.32.0.3 km &lt;none&gt; &lt;none&gt;</div><div class="line">kube-system etcd-km 1/1 Running 0 57m 10.176.7.9 km &lt;none&gt; &lt;none&gt;</div><div class="line">kube-system kube-apiserver-km 1/1 Running 0 57m 10.176.7.9 km &lt;none&gt; &lt;none&gt;</div><div class="line">kube-system kube-controller-manager-km 1/1 Running 0 57m 10.176.7.9 km &lt;none&gt; &lt;none&gt;</div><div class="line">kube-system kube-proxy-2nnzx 1/1 Running 0 42m 10.176.9.51 kw1 &lt;none&gt; &lt;none&gt;</div><div class="line">kube-system kube-proxy-bxhf2 1/1 Running 0 58m 10.176.7.9 km &lt;none&gt; &lt;none&gt;</div><div class="line">kube-system kube-proxy-mzqx6 1/1 Running 0 39m 10.176.12.157 kw2 &lt;none&gt; &lt;none&gt;</div><div class="line">kube-system kube-scheduler-km 1/1 Running 0 57m 10.176.7.9 km &lt;none&gt; &lt;none&gt;</div><div class="line">kube-system weave-net-fjzkw 2/2 Running 0 39m 10.176.12.157 kw2 &lt;none&gt; &lt;none&gt;</div><div class="line">kube-system weave-net-gjpnn 2/2 Running 0 42m 10.176.9.51 kw1 &lt;none&gt; &lt;none&gt;</div><div class="line">kube-system weave-net-pk682 2/2 Running 0 53m 10.176.7.9 km &lt;none&gt; &lt;none&gt;</div></pre></td></tr></table></figure>
+<h3 id="使用普通用户访问kubernetes"><a href="#使用普通用户访问kubernetes" class="headerlink" title="使用普通用户访问kubernetes"></a>使用普通用户访问kubernetes</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"># 在master节点执行</div><div class="line"># 切换到个人用户</div><div class="line">mkdir $HOME/.kube</div><div class="line">sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config</div><div class="line">sudo chown $(id -u):$(id -g) $HOME/.kube/config</div></pre></td></tr></table></figure>
+<p>然后将config文件内容拷贝至其他worker节点，或者个人PC里（$HOME/.kube/config），即可在worker以及个人PC上执行kubectl命令</p>
+<h3 id="link"><a href="#link" class="headerlink" title="link"></a>link</h3><p><a href="https://kubernetes.io/zh/docs/setup/independent/install-kubeadm/" target="_blank" rel="external">https://kubernetes.io/zh/docs/setup/independent/install-kubeadm/</a><br><a href="https://kubernetes.io/zh/docs/setup/independent/create-cluster-kubeadm/" target="_blank" rel="external">https://kubernetes.io/zh/docs/setup/independent/create-cluster-kubeadm/</a><br><a href="https://blog.csdn.net/mailjoin/article/details/79686934" target="_blank" rel="external">https://blog.csdn.net/mailjoin/article/details/79686934</a></p>
 
-        <div class="article-info info-on-right">
-          
-          
+      
 
+      
+        <div class="page-reward">
+          <a href="javascript:;" class="page-reward-btn tooltip-top">
+            <div class="tooltip tooltip-east">
+            <span class="tooltip-item">
+              赏
+            </span>
+            <span class="tooltip-content">
+              <span class="tooltip-text">
+                <span class="tooltip-inner">
+                  <p class="reward-p"><i class="icon icon-quo-left"></i>谢谢你请我吃糖果<i class="icon icon-quo-right"></i></p>
+                  <div class="reward-box">
+                    
+                    
+                    <div class="reward-box-item">
+                      <img class="reward-img" src="/img/wechat.png">
+                      <span class="reward-type">微信</span>
+                    </div>
+                    
+                  </div>
+                </span>
+              </span>
+            </span>
+          </div>
+          </a>
         </div>
-        <div class="clearfix"></div>
-    </header>
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+      
+
+      
+
+      
+        
+<div class="share-btn share-icons tooltip-left">
+  <div class="tooltip tooltip-east">
+    <span class="tooltip-item">
+      <a href="javascript:;" class="share-sns share-outer">
+        <i class="icon icon-share"></i>
+      </a>
+    </span>
+    <span class="tooltip-content">
+      <div class="share-wrap">
+        <div class="share-icons">
+          <a class="weibo share-sns" href="javascript:;" data-type="weibo">
+            <i class="icon icon-weibo"></i>
+          </a>
+          <a class="weixin share-sns wxFab" href="javascript:;" data-type="weixin">
+            <i class="icon icon-weixin"></i>
+          </a>
+          <a class="qq share-sns" href="javascript:;" data-type="qq">
+            <i class="icon icon-qq"></i>
+          </a>
+          <a class="douban share-sns" href="javascript:;" data-type="douban">
+            <i class="icon icon-douban"></i>
+          </a>
+          <a class="qzone share-sns" href="javascript:;" data-type="qzone">
+            <i class="icon icon-qzone"></i>
+          </a>
+          <a class="facebook share-sns" href="javascript:;" data-type="facebook">
+            <i class="icon icon-facebook"></i>
+          </a>
+          <a class="twitter share-sns" href="javascript:;" data-type="twitter">
+            <i class="icon icon-twitter"></i>
+          </a>
+          <a class="google share-sns" href="javascript:;" data-type="google">
+            <i class="icon icon-google"></i>
+          </a>
+        </div>
+      </div>
+    </span>
+  </div>
+</div>
+
+<div class="page-modal wx-share js-wx-box">
+    <a class="close js-modal-close" href="javascript:;"><i class="icon icon-close"></i></a>
+    <p>扫一扫，分享到微信</p>
+    <div class="wx-qrcode">
+      <img src="http://s.jiathis.com/qrcode.php?url=https://wangsaisai.github.io/2019/10/19/kubernetes-install/" alt="微信分享二维码">
+    </div>
+</div>
+
+<div class="mask js-mask"></div>
+      
+      <div class="clearfix"></div>
+    </div>
   </div>
 </article>
+
   
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2019/06/13/jvm-docker/" class="archive-article-date">
-  	<time datetime="2019-06-13T12:52:37.569Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-06-13</time>
-</a>
-        </div>
-    	 
+<nav id="article-nav">
   
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2019/06/13/jvm-docker/">jvm improve docker container detection and resource configuration usage</a>
-    </h1>
+  
+    <a href="/2019/06/13/jvm-docker/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">jvm improve docker container detection and resource configuration usage</div>
+      <i class="icon-circle-right"></i>
+    </a>
+  
+</nav>
+
+
+
+
+
+  
+  
   
 
-        <div class="article-info info-on-right">
-          
-          
+  
 
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
+  
+
   
     
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2019/05/23/distribute_theory/" class="archive-article-date">
-  	<time datetime="2019-05-23T13:23:25.672Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-05-23</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2019/05/23/distribute_theory/">分布式系统相关理论</a>
-    </h1>
+<section class="comments" id="comments">
+    <div id="gitment_thread"></div>
+    <link rel="stylesheet" href="https://imsun.github.io/gitment/style/default.css">
+    <script src="https://imsun.github.io/gitment/dist/gitment.browser.js"></script>
+    <script>
+        var gitment = new Gitment({
+            owner: 'wangsaisai',
+            repo: 'wangsaisai.github.io',
+            oauth: {
+                client_id: '5acc8c6205717c43d700',
+                client_secret: '6295863b5e969af1fb821218b4c196adadb3c03a',
+            },
+        })
+        gitment.render('comments')
+    </script>
+</section>
+
+
   
 
-        <div class="article-info info-on-right">
-          
-          
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-  
-    </div></section>
-  
-
-    
 
 
           </div>
@@ -266,8 +355,8 @@
 	var yiliaConfig = {
 		mathjax: true,
 		isHome: false,
-		isPost: false,
-		isArchive: true,
+		isPost: true,
+		isArchive: false,
 		isTag: false,
 		isCategory: false,
 		open_in_new: false,

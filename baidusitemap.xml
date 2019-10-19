@@ -4,6 +4,21 @@
 
     
   <url>
+    <loc>https://wangsaisai.github.io/2019/10/19/kubernetes-install/</loc>
+    <lastmod>2019-10-19T02:25:05.022Z</lastmod>
+    <data>
+        <display>
+        <title>使用kubeadm创建kubernetes单主集群 - ubuntu</title>
+        <pubTime>2019-10-19T02:20:42.641Z</pubTime>
+        
+         
+           
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
     <loc>https://wangsaisai.github.io/2019/06/13/jvm-docker/</loc>
     <lastmod>2019-06-13T12:52:37.569Z</lastmod>
     <data>
