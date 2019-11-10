@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://wangsaisai.github.io/"/>
-  <updated>2019-11-10T07:46:29.313Z</updated>
+  <updated>2019-11-10T07:55:40.182Z</updated>
   <id>https://wangsaisai.github.io/</id>
   
   <author>
@@ -19,8 +19,8 @@
     <title>生产环镜Standby NameNode GC严重问题记录</title>
     <link href="https://wangsaisai.github.io/2019/11/10/standby_gc/"/>
     <id>https://wangsaisai.github.io/2019/11/10/standby_gc/</id>
-    <published>2019-11-10T07:46:29.313Z</published>
-    <updated>2019-11-10T07:46:29.313Z</updated>
+    <published>2019-11-10T07:55:40.181Z</published>
+    <updated>2019-11-10T07:55:40.182Z</updated>
     
     <content type="html"><![CDATA[<p>HDFS集群正常运行了将近一年，最近两个月出现一个诡异的问题：Standby节点严重的GC，Active节点正常。虽然不影响线上业务，但潜在的问题还是比较严重的，这里简单整理下问题定位和解决过程。</p>
 <h1 id="一、问题描述"><a href="#一、问题描述" class="headerlink" title="一、问题描述"></a>一、问题描述</h1><p>HDFS版本：2.5.2 （问题与版本无关）</p>
@@ -88,7 +88,7 @@
 <li>jvm提供了详细的工具帮助定位问题，一定要善于利用这些工具</li>
 <li>jmap要慎用。而且打jmap要选择合适的时间点。</li>
 <li>遇到问题尽量解决，规避问题要考虑潜在的风险。</li>
-<li>问题的现象与具体的原因可能存在一定距离，必要是需要换换思路。</li>
+<li>问题的现象与具体的原因可能存在一定距离，有必要是需要换换思路。</li>
 </ol>
 <h1 id="七、推荐阅读"><a href="#七、推荐阅读" class="headerlink" title="七、推荐阅读"></a>七、推荐阅读</h1><ol>
 <li><a href="https://tech.meituan.com/namenode-memory-detail.html" target="_blank" rel="external">《HDFS NameNode内存详解》</a></li>
