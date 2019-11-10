@@ -2,6 +2,13 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
+    <loc>https://wangsaisai.github.io/2019/11/10/standby_gc/</loc>
+    
+    <lastmod>2019-11-10T07:46:29.313Z</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>https://wangsaisai.github.io/2019/10/19/kubernetes-install/</loc>
     
     <lastmod>2019-10-19T02:25:05.022Z</lastmod>
@@ -33,13 +40,6 @@
     <loc>https://wangsaisai.github.io/2018/02/09/java-9-turorial/</loc>
     
     <lastmod>2018-02-09T13:06:47.911Z</lastmod>
-    
-  </url>
-  
-  <url>
-    <loc>https://wangsaisai.github.io/2017/10/08/standby_gc/</loc>
-    
-    <lastmod>2017-10-08T12:45:10.000Z</lastmod>
     
   </url>
   

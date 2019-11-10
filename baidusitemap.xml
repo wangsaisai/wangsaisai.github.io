@@ -4,6 +4,21 @@
 
     
   <url>
+    <loc>https://wangsaisai.github.io/2019/11/10/standby_gc/</loc>
+    <lastmod>2019-11-10T07:46:29.313Z</lastmod>
+    <data>
+        <display>
+        <title>生产环镜Standby NameNode GC严重问题记录</title>
+        <pubTime>2019-11-10T07:46:29.313Z</pubTime>
+        
+         
+           
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
     <loc>https://wangsaisai.github.io/2019/10/19/kubernetes-install/</loc>
     <lastmod>2019-10-19T02:25:05.022Z</lastmod>
     <data>
@@ -70,21 +85,6 @@
         <display>
         <title>java 9 turorial</title>
         <pubTime>2018-02-09T13:06:47.911Z</pubTime>
-        
-         
-           
-        </display>
-    </data>
-    </url>
-
-    
-  <url>
-    <loc>https://wangsaisai.github.io/2017/10/08/standby_gc/</loc>
-    <lastmod>2017-10-08T12:45:10.000Z</lastmod>
-    <data>
-        <display>
-        <title>生产环镜Standby NameNode GC严重问题记录</title>
-        <pubTime>2017-10-08T12:45:10.000Z</pubTime>
         
          
            

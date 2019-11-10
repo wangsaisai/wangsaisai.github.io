@@ -11,11 +11,11 @@
   <meta name="description" content="HDFS集群正常运行了将近一年，最近两个月出现一个诡异的问题：Standby节点严重的GC，Active节点正常。虽然不影响线上业务，但潜在的问题还是比较严重的，这里简单整理下问题定位和解决过程。 一、问题描述HDFS版本：2.5.2 （问题与版本无关） HDFS的active节点正常，Standby节点严重GC 二、集群的情况：HDFS集群数据量在几百TB，Namespace和Block数量在千">
 <meta property="og:type" content="article">
 <meta property="og:title" content="生产环镜Standby NameNode GC严重问题记录">
-<meta property="og:url" content="https://wangsaisai.github.io/2017/10/08/standby_gc/index.html">
+<meta property="og:url" content="https://wangsaisai.github.io/2019/11/10/standby_gc/index.html">
 <meta property="og:site_name" content="Bamboo&#39;s Blog">
 <meta property="og:description" content="HDFS集群正常运行了将近一年，最近两个月出现一个诡异的问题：Standby节点严重的GC，Active节点正常。虽然不影响线上业务，但潜在的问题还是比较严重的，这里简单整理下问题定位和解决过程。 一、问题描述HDFS版本：2.5.2 （问题与版本无关） HDFS的active节点正常，Standby节点严重GC 二、集群的情况：HDFS集群数据量在几百TB，Namespace和Block数量在千">
 <meta property="og:image" content="https://wangsaisai.github.io/images/jmap.png">
-<meta property="og:updated_time" content="2017-10-08T12:45:10.000Z">
+<meta property="og:updated_time" content="2019-11-10T07:46:29.313Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="生产环镜Standby NameNode GC严重问题记录">
 <meta name="twitter:description" content="HDFS集群正常运行了将近一年，最近两个月出现一个诡异的问题：Standby节点严重的GC，Active节点正常。虽然不影响线上业务，但潜在的问题还是比较严重的，这里简单整理下问题定位和解决过程。 一、问题描述HDFS版本：2.5.2 （问题与版本无关） HDFS的active节点正常，Standby节点严重GC 二、集群的情况：HDFS集群数据量在几百TB，Namespace和Block数量在千">
@@ -165,8 +165,8 @@
   
 
         
-        <a href="/2017/10/08/standby_gc/" class="archive-article-date">
-  	<time datetime="2017-10-08T12:45:10.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2017-10-08</time>
+        <a href="/2019/11/10/standby_gc/" class="archive-article-date">
+  	<time datetime="2019-11-10T07:46:29.313Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-11-10</time>
 </a>
         
       </header>
@@ -239,7 +239,7 @@
 <li>jvm提供了详细的工具帮助定位问题，一定要善于利用这些工具</li>
 <li>jmap要慎用。而且打jmap要选择合适的时间点。</li>
 <li>遇到问题尽量解决，规避问题要考虑潜在的风险。</li>
-<li>问题的现象与具体的原因可能存在一定距离，必要是需要换换思路，不能钻牛角尖。</li>
+<li>问题的现象与具体的原因可能存在一定距离，必要是需要换换思路。</li>
 </ol>
 <h1 id="七、推荐阅读"><a href="#七、推荐阅读" class="headerlink" title="七、推荐阅读"></a>七、推荐阅读</h1><ol>
 <li><a href="https://tech.meituan.com/namenode-memory-detail.html" target="_blank" rel="external">《HDFS NameNode内存详解》</a></li>
@@ -331,7 +331,7 @@
     <a class="close js-modal-close" href="javascript:;"><i class="icon icon-close"></i></a>
     <p>扫一扫，分享到微信</p>
     <div class="wx-qrcode">
-      <img src="http://s.jiathis.com/qrcode.php?url=https://wangsaisai.github.io/2017/10/08/standby_gc/" alt="微信分享二维码">
+      <img src="http://s.jiathis.com/qrcode.php?url=https://wangsaisai.github.io/2019/11/10/standby_gc/" alt="微信分享二维码">
     </div>
 </div>
 
@@ -345,18 +345,9 @@
   
 <nav id="article-nav">
   
-    <a href="/2018/02/09/java-9-turorial/" id="article-nav-newer" class="article-nav-link-wrap">
-      <i class="icon-circle-left"></i>
-      <div class="article-nav-title">
-        
-          java 9 turorial
-        
-      </div>
-    </a>
   
-  
-    <a href="/2017/07/15/Intelligent-Age/" id="article-nav-older" class="article-nav-link-wrap">
-      <div class="article-nav-title">智能时代</div>
+    <a href="/2019/10/19/kubernetes-install/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">使用kubeadm创建kubernetes单主集群 - ubuntu</div>
       <i class="icon-circle-right"></i>
     </a>
   
