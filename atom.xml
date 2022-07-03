@@ -1,0 +1,1568 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Bamboo&#39;s Blog</title>
+  <subtitle>A blog of learn, reading, thinking, AI...</subtitle>
+  <link href="/atom.xml" rel="self"/>
+  
+  <link href="https://wangsaisai.github.io/"/>
+  <updated>2022-07-03T05:59:28.732Z</updated>
+  <id>https://wangsaisai.github.io/</id>
+  
+  <author>
+    <name>Bamboo Liu</name>
+    
+  </author>
+  
+  <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>Flink KeyGroup机制导致的数据倾斜问题</title>
+    <link href="https://wangsaisai.github.io/2022/07/03/flink-keygroup-dataskew/"/>
+    <id>https://wangsaisai.github.io/2022/07/03/flink-keygroup-dataskew/</id>
+    <published>2022-07-03T05:52:34.582Z</published>
+    <updated>2022-07-03T05:59:28.732Z</updated>
+    
+    <content type="html"><![CDATA[<h1 id="Flink-KeyGroup机制导致的数据倾斜问题"><a href="#Flink-KeyGroup机制导致的数据倾斜问题" class="headerlink" title="Flink KeyGroup机制导致的数据倾斜问题"></a>Flink KeyGroup机制导致的数据倾斜问题</h1><h3 id="业务背景"><a href="#业务背景" class="headerlink" title="业务背景"></a>业务背景</h3><p>数据源位于Kafka中，将相同Key的数据聚合成Batch，写入HBase中.</p>
+<p>即：kafka(sourceStream) –&gt; keyby(batch) –&gt; hbase(sink)</p>
+<p>核心代码如下<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">sourceStream</span><br><span class="line">    .keyBy(CustomerData::getCustomerKey)</span><br><span class="line">    .process(<span class="keyword">new</span> CustomerKeyedProcessFunction())</span><br><span class="line">    .returns(CustomerBatch.class)</span><br><span class="line">    .addSink(hbaseSink);</span><br></pre></td></tr></table></figure></p>
+<p>使用Flink版本：1.13.2</p>
+<h3 id="数据倾斜现象"><a href="#数据倾斜现象" class="headerlink" title="数据倾斜现象"></a>数据倾斜现象</h3><p>测试Case：Flink并发度：180，SubTask高低倾斜率约为216:144 = 3：2</p>
+<a id="more"></a>
+<p><img src="/images/flink-keygroup-dataskew.png" alt="图片1" title="skew"></p>
+<h3 id="原因分析"><a href="#原因分析" class="headerlink" title="原因分析"></a>原因分析</h3><p>Key-Groups是Flink对Key进行分组。进入Flink的数据有无限种可能，把无限可能的Key通过某种算法分成有限个组。</p>
+<p>key根据其HashCode会分配到某个keyGroup，算法如下：<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">int</span> <span class="title">assignToKeyGroup</span><span class="params">(Object key, <span class="keyword">int</span> maxParallelism)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> computeKeyGroupForKeyHash(key.hashCode(), maxParallelism);</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">int</span> <span class="title">computeKeyGroupForKeyHash</span><span class="params">(<span class="keyword">int</span> keyHash, <span class="keyword">int</span> maxParallelism)</span> </span>&#123;</span><br><span class="line">    <span class="comment">// MathUtils.murmurHash(int hash) 方法是Flink提供的静态方法，将hash值再次散列，避免用户数据分布不均</span></span><br><span class="line">    <span class="keyword">return</span> MathUtils.murmurHash(keyHash) % maxParallelism;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>KeyGroup数量等于最大并发度，最大并行度的算法如下：<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">int</span> <span class="title">computeDefaultMaxParallelism</span><span class="params">(<span class="keyword">int</span> operatorParallelism)</span> </span>&#123;</span><br><span class="line"> </span><br><span class="line">    checkParallelismPreconditions(operatorParallelism);</span><br><span class="line"> </span><br><span class="line"> <span class="keyword">return</span> Math.min(</span><br><span class="line">            Math.max(</span><br><span class="line">                    MathUtils.roundUpToPowerOfTwo(</span><br><span class="line">                            operatorParallelism + (operatorParallelism / <span class="number">2</span>)),</span><br><span class="line"> DEFAULT_LOWER_BOUND_MAX_PARALLELISM),</span><br><span class="line"> UPPER_BOUND_MAX_PARALLELISM);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>即 min(32768, max(128, MathUtils.roundUpToPowerOfTwo(operatorParallelism*1.5)))</p>
+<p>测试时，operatorParallelism = 180， 计算得到的MaxParallelism=512，总共有512个KeyGroup.</p>
+<p>512个KeyGroup分配给180个SubTask，(512/180=2.84), 少数SubTask会被分配到2个KeyGroup，多数SubTask会被分配到3个KeyGroup。因此数据倾斜比为2：3，跟观测结果一致</p>
+<h3 id="解决"><a href="#解决" class="headerlink" title="解决"></a>解决</h3><p>自定义MaxParallelism参数，不使用默认值<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">env.getConfig().setMaxParallelism(<span class="number">4096</span>);</span><br></pre></td></tr></table></figure></p>
+<blockquote>
+<p>Flink官网提醒注意：调高最大并行度产生更多Key Groups组数，使状态元数据增大，Checkpoint快照也随之增大，降低性能。<br>实际测试发现，该部分影响很小（未发现checkpoint大小显著变化）,推测原因是状态总数据量大，导致状态元数据量的增长不明显</p>
+</blockquote>
+<h3 id="Flink为何如此设计-KeyGroup由来"><a href="#Flink为何如此设计-KeyGroup由来" class="headerlink" title="Flink为何如此设计 - KeyGroup由来"></a>Flink为何如此设计 - KeyGroup由来</h3><p>Flink为何不根据自定义并发度进行计算？<br>在Flink早期版本中，并没有KeyGroup的概念，数据按照任务并发度来拆分。<br>但存在一个弊端：如果后续需要修改并发度，任务重启时，需要重新将CheckPoint中保存的Key进行计算，重新分配到各个subtask中，耗时较长。<br>为了解决这个问题，Flink才设计了KeyGroup机制。</p>
+<h3 id="参考文档"><a href="#参考文档" class="headerlink" title="参考文档"></a>参考文档</h3><ol>
+<li><a href="https://www.yuque.com/deadwind/notes/flink-key-groups" target="_blank" rel="noopener">https://www.yuque.com/deadwind/notes/flink-key-groups</a></li>
+<li><a href="https://issues.apache.org/jira/browse/FLINK-3755" target="_blank" rel="noopener">https://issues.apache.org/jira/browse/FLINK-3755</a></li>
+<li><a href="https://blog.csdn.net/nazeniwaresakini/article/details/104220138" target="_blank" rel="noopener">https://blog.csdn.net/nazeniwaresakini/article/details/104220138</a></li>
+</ol>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h1 id=&quot;Flink-KeyGroup机制导致的数据倾斜问题&quot;&gt;&lt;a href=&quot;#Flink-KeyGroup机制导致的数据倾斜问题&quot; class=&quot;headerlink&quot; title=&quot;Flink KeyGroup机制导致的数据倾斜问题&quot;&gt;&lt;/a&gt;Flink KeyGroup机制导致的数据倾斜问题&lt;/h1&gt;&lt;h3 id=&quot;业务背景&quot;&gt;&lt;a href=&quot;#业务背景&quot; class=&quot;headerlink&quot; title=&quot;业务背景&quot;&gt;&lt;/a&gt;业务背景&lt;/h3&gt;&lt;p&gt;数据源位于Kafka中，将相同Key的数据聚合成Batch，写入HBase中.&lt;/p&gt;
+&lt;p&gt;即：kafka(sourceStream) –&amp;gt; keyby(batch) –&amp;gt; hbase(sink)&lt;/p&gt;
+&lt;p&gt;核心代码如下&lt;br&gt;&lt;figure class=&quot;highlight java&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre&gt;&lt;span class=&quot;line&quot;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&quot;code&quot;&gt;&lt;pre&gt;&lt;span class=&quot;line&quot;&gt;sourceStream&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;    .keyBy(CustomerData::getCustomerKey)&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;    .process(&lt;span class=&quot;keyword&quot;&gt;new&lt;/span&gt; CustomerKeyedProcessFunction())&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;    .returns(CustomerBatch.class)&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;    .addSink(hbaseSink);&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;&lt;/p&gt;
+&lt;p&gt;使用Flink版本：1.13.2&lt;/p&gt;
+&lt;h3 id=&quot;数据倾斜现象&quot;&gt;&lt;a href=&quot;#数据倾斜现象&quot; class=&quot;headerlink&quot; title=&quot;数据倾斜现象&quot;&gt;&lt;/a&gt;数据倾斜现象&lt;/h3&gt;&lt;p&gt;测试Case：Flink并发度：180，SubTask高低倾斜率约为216:144 = 3：2&lt;/p&gt;
+    
+    </summary>
+    
+    
+  </entry>
+  
+  <entry>
+    <title>生产环镜Standby NameNode GC严重问题记录</title>
+    <link href="https://wangsaisai.github.io/2019/11/10/standby_gc/"/>
+    <id>https://wangsaisai.github.io/2019/11/10/standby_gc/</id>
+    <published>2019-11-10T07:55:40.182Z</published>
+    <updated>2019-11-10T07:55:40.182Z</updated>
+    
+    <content type="html"><![CDATA[<p>HDFS集群正常运行了将近一年，最近两个月出现一个诡异的问题：Standby节点严重的GC，Active节点正常。虽然不影响线上业务，但潜在的问题还是比较严重的，这里简单整理下问题定位和解决过程。</p>
+<h1 id="一、问题描述"><a href="#一、问题描述" class="headerlink" title="一、问题描述"></a>一、问题描述</h1><p>HDFS版本：2.5.2 （问题与版本无关）</p>
+<p>HDFS的active节点正常，Standby节点严重GC</p>
+<h1 id="二、集群的情况："><a href="#二、集群的情况：" class="headerlink" title="二、集群的情况："></a>二、集群的情况：</h1><p>HDFS集群数据量在几百TB，Namespace和Block数量在千万级别，每天增长大约几十GB的数据量。Namespace和Block的信息消耗的内存会略微有部分增长，但不会发生太大变化。</p>
+<h1 id="三、问题分析"><a href="#三、问题分析" class="headerlink" title="三、问题分析"></a>三、问题分析</h1><p>问题最诡异的地方在于，Standby节点GC异常，但Active节点GC正常。</p>
+<p>HDFS的内存主要消耗是Namespace和Block信息。这些信息是常住内存的，不会发生太大变动。<br>一般来讲，Active节点的任务量要超过Standby节点，但由于内存主要消耗在Namespace和Block信息，Namespace和Block信息在Active/Standby节点是完全一致的，所以两个节点的内存消耗应该接近，Active节点略微比Standby节点多消耗一些内存。</p>
+<a id="more"></a>
+<h1 id="四、问题追踪"><a href="#四、问题追踪" class="headerlink" title="四、问题追踪"></a>四、问题追踪</h1><h3 id="Checkpoint角度分析"><a href="#Checkpoint角度分析" class="headerlink" title="Checkpoint角度分析"></a>Checkpoint角度分析</h3><p>刚开始从Standby节点GC超过Active节点的角度进行分析，什么任务是Standby节点会做，而Active节点不做的? – CheckPoint，即检查点</p>
+<p><em>注：CheckPoint并不是某个时刻，而是一个操作过程。指将HDFS的fsimage和editlog进行合并的过程。详细信息，可查看下HDFS的HA实现。</em></p>
+<p>初步怀疑是做检查点时，代码上存在内存泄漏，导致了Standby严重GC。由于是生产环镜，不能远程Debug，只能通过阅读源码形式分析，效率缓慢，没有进展。</p>
+<h3 id="jvm角度分析"><a href="#jvm角度分析" class="headerlink" title="jvm角度分析"></a>jvm角度分析</h3><p>CheckPoint的思路没有进展。后来换个思路，追踪下Standby GC的详细情况。</p>
+<p>jstat，jmap等jvm相关的知识可参考笔者另一篇文章：   <a href="/2017/05/04/jvm/">《jvm 简介》</a></p>
+<p>通过打jstat发现，Standby节点fullgc频率异常，一天有几十次的fullgc，而且fullgc占用的时间很长，一次大约会使用100s的时间。另外，Standby节点fullgc过后，jvm内存使用率立刻降低。</p>
+<p>然后，开始通过打jmap进行分析。考虑到，针对Standby节点打的jmap，并不影响Active节点的正常服务，也就不影响HDFS的服务可用性，再加上该问题一直没有进展，就选择了这个方案。</p>
+<p><strong>打jmap对jvm进程影响非常大，可能导致jvm停顿。特别是对于hdfs这种内存占用较大的进程，可能会导致几分钟的停顿，所以生产环境一定要慎用。</strong></p>
+<p>笔者共打了四次jmap</p>
+<p>两个时间点：</p>
+<ol>
+<li>内存高位时，即将发生gc的时刻。</li>
+<li>刚刚gc过后</li>
+</ol>
+<p>两种jmap方式（把全部的对象和活着的对象都打印出来）：</p>
+<ol>
+<li>jmap -histo:live pid</li>
+<li>jmap -histo pid</li>
+</ol>
+<p>四次结果：</p>
+<ul>
+<li>jmap_low_all: 内存低位，所有对象</li>
+<li>jmap_low_live: 内存低位，活着对象</li>
+<li>jmap_high_all: 内存高位，所有对象</li>
+<li>jmap_high_live: 内存高位，活着对象</li>
+</ul>
+<p>分析发现，jmap_low_all，jmap_low_live，jmap_high_live三次结果接近，无太大变化；jmap_high_all与其他3此差别较大，多出来的内存大致如下：</p>
+<p><img src="/images/jmap.png" alt="图片1" title="jmap"></p>
+<p>分析发现：多出的内存主要是PersistToken对象。<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">PersistToken &#123;</span><br><span class="line">  Object owner_;</span><br><span class="line">  Object renewer_;</span><br><span class="line">  Object realUser_;</span><br><span class="line">   ......</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>根据PersistToken类中的方法getOwner() getRenewer()，getRealUser()可知 ，owner<em>,  renewer</em>, realUser_ 都是String或者com.google.protobuf.ByteString类型，而LiteralByteString是com.google.protobuf.ByteString（ByteString是抽象类）的一个子类</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">LiteralByteString &#123;</span><br><span class="line">   <span class="keyword">byte</span>[] bytes;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">String &#123;</span><br><span class="line">    <span class="keyword">char</span> value[];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>所以，推测内存的增长都是因为PersistToken对象导致的。</p>
+<p>然后在分析检查点的代码<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">CheckPointer &#123;</span><br><span class="line">  <span class="function"><span class="keyword">void</span> <span class="title">doCheckpoint</span><span class="params">()</span> </span>&#123;</span><br><span class="line">      bnImage.saveFSImageInAllDirs(backupNode.getNamesystem(), txid);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>上面代码，一层层看下去，会调到<br>DelegationTokenSecretManager的saveSecretManagerState()方法</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">synchronized</span> SecretManagerState <span class="title">saveSecretManagerState</span><span class="params">()</span> </span>&#123;</span><br><span class="line">...</span><br><span class="line">ArrayList&lt;SecretManagerSection.PersistToken&gt; tokens = Lists</span><br><span class="line">    .newArrayListWithCapacity(currentTokens.size());</span><br><span class="line">...</span><br><span class="line"><span class="keyword">for</span> (Entry&lt;DelegationTokenIdentifier, DelegationTokenInformation&gt; e : currentTokens</span><br><span class="line">   .entrySet()) &#123;</span><br><span class="line"> DelegationTokenIdentifier id = e.getKey();</span><br><span class="line"> SecretManagerSection.PersistToken.Builder b = SecretManagerSection.PersistToken</span><br><span class="line">     .newBuilder().setOwner(id.getOwner().toString())</span><br><span class="line">     .setRenewer(id.getRenewer().toString())</span><br><span class="line">     .setRealUser(id.getRealUser().toString())</span><br><span class="line">     .setIssueDate(id.getIssueDate()).setMaxDate(id.getMaxDate())</span><br><span class="line">     .setSequenceNumber(id.getSequenceNumber())</span><br><span class="line">     .setMasterKeyId(id.getMasterKeyId())</span><br><span class="line">     .setExpiryDate(e.getValue().getRenewDate());</span><br><span class="line"> tokens.add(b.build());       <span class="comment">//tokens太大，所以这部分内存直接进入old区，minor gc无法回收</span></span><br><span class="line">&#125;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>通过log发现，currentTokens数量在千万级别。在做检查点时，这些tokens会转化成PersistToken,以方便将tokens序列化到fsimage中。统计下来，PersistToken会占用4-5GB的内存，这些内存超出了eden区的大小，因此会被直接存入old区，old区会快速的增长4-5GB，容易触发CMS进行回收，回收过程甚至可能导致内存不足，因此引发fullgc导致的STW（stop the world）。 检查点默认每个小时都会执行一次（可以配置成其他值），当editlog数量达到1百万时，也会触发检查点任务。周期性的检查点任务，导致了Standby节点gc严重的问题。</p>
+<p>所以，Standby节点异常的原因就是因为tokens太多了，但问题并没有结束，tokens从哪里来的，为何产生这么多token，token如何回收？</p>
+<p>tokens的来源是HDFS上层应用产生的，此处暂时不讲解这个问题（稍后笔者可能会在写篇博文进行介绍）。</p>
+<p>tokens的回收有两种方式</p>
+<ul>
+<li>一种是上层应用调用hdfs接口进行删除。</li>
+<li>一种是等待tokens自动过期，然后清除。</li>
+</ul>
+<p>tokens默认过期时间是7天，但配置文件中将相关参数调大了一万倍，7万天后才会自动清除（调大的原因是上层应用的一个bug，这个bug一时难以解决，就暂且调大了这个配置来规避这个bug）。由于集群运行了将近一年，所以tokens数量一直增长至千万级别。</p>
+<p>注：tokens相关配置，及默认值：（hdfs-site.xml）</p>
+<ul>
+<li>dfs.namenode.delegation.token.max-lifetime = 604800000</li>
+<li>dfs.namenode.delegation.token.renew-interval = 86400000</li>
+</ul>
+<h1 id="五、问题解决"><a href="#五、问题解决" class="headerlink" title="五、问题解决"></a>五、问题解决</h1><ul>
+<li>首先，是解决上层应用的bug</li>
+<li>然后，把tokens过期时间的参数值调整回来</li>
+<li>清理已有token。（已有的token其过期时间已经设定为7万天后，即使修改配置文件，也不会对已有token产生影响。所以，还要想办法清理已有的token）</li>
+</ul>
+<h1 id="六、经验"><a href="#六、经验" class="headerlink" title="六、经验"></a>六、经验</h1><p>回头看问题追踪的整个过程，有几点值得总结的经验：</p>
+<ol>
+<li>jvm提供了详细的工具帮助定位问题，一定要善于利用这些工具</li>
+<li>jmap要慎用。而且打jmap要选择合适的时间点。</li>
+<li>遇到问题尽量解决，规避问题要考虑潜在的风险。</li>
+<li>问题的现象与具体的原因可能存在一定距离，有必要是需要换换思路。</li>
+</ol>
+<h1 id="七、推荐阅读"><a href="#七、推荐阅读" class="headerlink" title="七、推荐阅读"></a>七、推荐阅读</h1><ol>
+<li><a href="https://tech.meituan.com/namenode-memory-detail.html" target="_blank" rel="noopener">《HDFS NameNode内存详解》</a></li>
+<li><a href="https://tech.meituan.com/namenode.html" target="_blank" rel="noopener">《HDFS NameNode内存全景》</a></li>
+<li><a href="/2017/05/04/jvm/">《jvm 简介》</a></li>
+<li><a href="http://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-hdfs/HDFSHighAvailabilityWithNFS.html" target="_blank" rel="noopener">《HDFS High Availability》</a></li>
+</ol>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;HDFS集群正常运行了将近一年，最近两个月出现一个诡异的问题：Standby节点严重的GC，Active节点正常。虽然不影响线上业务，但潜在的问题还是比较严重的，这里简单整理下问题定位和解决过程。&lt;/p&gt;
+&lt;h1 id=&quot;一、问题描述&quot;&gt;&lt;a href=&quot;#一、问题描述&quot; class=&quot;headerlink&quot; title=&quot;一、问题描述&quot;&gt;&lt;/a&gt;一、问题描述&lt;/h1&gt;&lt;p&gt;HDFS版本：2.5.2 （问题与版本无关）&lt;/p&gt;
+&lt;p&gt;HDFS的active节点正常，Standby节点严重GC&lt;/p&gt;
+&lt;h1 id=&quot;二、集群的情况：&quot;&gt;&lt;a href=&quot;#二、集群的情况：&quot; class=&quot;headerlink&quot; title=&quot;二、集群的情况：&quot;&gt;&lt;/a&gt;二、集群的情况：&lt;/h1&gt;&lt;p&gt;HDFS集群数据量在几百TB，Namespace和Block数量在千万级别，每天增长大约几十GB的数据量。Namespace和Block的信息消耗的内存会略微有部分增长，但不会发生太大变化。&lt;/p&gt;
+&lt;h1 id=&quot;三、问题分析&quot;&gt;&lt;a href=&quot;#三、问题分析&quot; class=&quot;headerlink&quot; title=&quot;三、问题分析&quot;&gt;&lt;/a&gt;三、问题分析&lt;/h1&gt;&lt;p&gt;问题最诡异的地方在于，Standby节点GC异常，但Active节点GC正常。&lt;/p&gt;
+&lt;p&gt;HDFS的内存主要消耗是Namespace和Block信息。这些信息是常住内存的，不会发生太大变动。&lt;br&gt;一般来讲，Active节点的任务量要超过Standby节点，但由于内存主要消耗在Namespace和Block信息，Namespace和Block信息在Active/Standby节点是完全一致的，所以两个节点的内存消耗应该接近，Active节点略微比Standby节点多消耗一些内存。&lt;/p&gt;
+    
+    </summary>
+    
+    
+  </entry>
+  
+  <entry>
+    <title>使用kubeadm创建kubernetes单主集群 - ubuntu</title>
+    <link href="https://wangsaisai.github.io/2019/10/19/kubernetes-install/"/>
+    <id>https://wangsaisai.github.io/2019/10/19/kubernetes-install/</id>
+    <published>2019-10-19T02:20:42.642Z</published>
+    <updated>2019-10-19T02:25:05.023Z</updated>
+    
+    <content type="html"><![CDATA[<h1 id="use-kubeadmin-install-k8s-in-ubuntu"><a href="#use-kubeadmin-install-k8s-in-ubuntu" class="headerlink" title="use kubeadmin install k8s in ubuntu"></a>use kubeadmin install k8s in ubuntu</h1><h3 id="准备环境"><a href="#准备环境" class="headerlink" title="准备环境"></a>准备环境</h3><ul>
+<li>至少2台机器或虚拟机（一个master，多个worker）</li>
+<li>每台机器 2 GB 内存或更多</li>
+<li>每台机器 2 CPU 核心或更多</li>
+<li>集群中的所有机器的网络彼此均能相互连接(公网和内网都可以)</li>
+<li>禁用 Swap 交换分区</li>
+</ul>
+<a id="more"></a>
+<h3 id="安装软件"><a href="#安装软件" class="headerlink" title="安装软件"></a>安装软件</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"># 每台机器都需要安装</span><br><span class="line">apt-get update &amp;&amp; apt-get install -y apt-transport-https curl</span><br><span class="line">curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -</span><br><span class="line">cat &lt;&lt;EOF &gt;/etc/apt/sources.list.d/kubernetes.list</span><br><span class="line">deb https://apt.kubernetes.io/ kubernetes-xenial main</span><br><span class="line">EOF</span><br><span class="line">apt-get update</span><br><span class="line">apt-get install -y kubelet kubeadm kubectl</span><br><span class="line">apt-mark hold kubelet kubeadm kubectl</span><br></pre></td></tr></table></figure>
+<h3 id="master-node-初始化"><a href="#master-node-初始化" class="headerlink" title="master node 初始化"></a>master node 初始化</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># 选择一台作为 master</span><br><span class="line"># 在 master 上执行</span><br><span class="line">kubeadm init</span><br></pre></td></tr></table></figure>
+<p>执行成功后，会输出 token 。<br>其他worker 使用此 token 加入到 kubernetes 集群。</p>
+<blockquote>
+<p>Then you can join any number of worker nodes by running the following on each as root:<br>kubeadm join 10.176.7.9:6443 –token hh6cfg.ijmppt2fpry2dqr9 \<br>–discovery-token-ca-cert-hash sha256:c862aa8398c66300678371f1276cf6ffe02d589a17dc722c4eedb9ccd1db0282</p>
+</blockquote>
+<h3 id="worker-node-加入-kubernetes-集群"><a href="#worker-node-加入-kubernetes-集群" class="headerlink" title="worker node 加入 kubernetes 集群"></a>worker node 加入 kubernetes 集群</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># 在worker 上执行</span><br><span class="line">kubeadm join 10.176.7.9:6443 --token hh6cfg.ijmppt2fpry2dqr9 \</span><br><span class="line">--discovery-token-ca-cert-hash sha256:c862aa8398c66300678371f1276cf6ffe02d589a17dc722c4eedb9ccd1db0282</span><br></pre></td></tr></table></figure>
+<p><em>token 24小时后会过期，可重新获取token</em><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># 重新生成token</span><br><span class="line">kubeadm token create</span><br><span class="line"># 获取ca证书sha256编码hash值</span><br><span class="line">openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2&gt;/dev/null | openssl dgst -sha256 -hex | sed &apos;s/^.* //&apos;</span><br><span class="line"># join到集群</span><br><span class="line">kubeadm join 10.176.7.9:6443 --token &#123;token&#125; --discovery-token-ca-cert-hash sha256:&#123;hash&#125;</span><br></pre></td></tr></table></figure></p>
+<h3 id="安装Pod网络插件-weave"><a href="#安装Pod网络插件-weave" class="headerlink" title="安装Pod网络插件 - weave"></a>安装Pod网络插件 - weave</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># 在 master 上执行</span><br><span class="line">export kubever=$(kubectl version | base64 | tr -d &apos;\n&apos;)</span><br><span class="line">wget https://cloud.weave.works/k8s/net?k8s-version=$kubever -O weave.yaml</span><br><span class="line">kubectl apply -f weave.yaml</span><br></pre></td></tr></table></figure>
+<h3 id="验证是否安装成功"><a href="#验证是否安装成功" class="headerlink" title="验证是否安装成功"></a>验证是否安装成功</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">kubernetes@km:~$ kubectl get nodes</span><br><span class="line">NAME STATUS ROLES AGE VERSION</span><br><span class="line">km Ready master 58m v1.16.2</span><br><span class="line">kw1 Ready &lt;none&gt; 41m v1.16.2</span><br><span class="line">kw2 Ready &lt;none&gt; 39m v1.16.2</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">kubernetes@km:~$ kubectl get pods --all-namespaces -o wide</span><br><span class="line">NAMESPACE NAME READY STATUS RESTARTS AGE IP NODE NOMINATED NODE READINESS GATES</span><br><span class="line">kube-system coredns-5644d7b6d9-pfp4r 1/1 Running 0 58m 10.32.0.2 km &lt;none&gt; &lt;none&gt;</span><br><span class="line">kube-system coredns-5644d7b6d9-w98kd 1/1 Running 0 58m 10.32.0.3 km &lt;none&gt; &lt;none&gt;</span><br><span class="line">kube-system etcd-km 1/1 Running 0 57m 10.176.7.9 km &lt;none&gt; &lt;none&gt;</span><br><span class="line">kube-system kube-apiserver-km 1/1 Running 0 57m 10.176.7.9 km &lt;none&gt; &lt;none&gt;</span><br><span class="line">kube-system kube-controller-manager-km 1/1 Running 0 57m 10.176.7.9 km &lt;none&gt; &lt;none&gt;</span><br><span class="line">kube-system kube-proxy-2nnzx 1/1 Running 0 42m 10.176.9.51 kw1 &lt;none&gt; &lt;none&gt;</span><br><span class="line">kube-system kube-proxy-bxhf2 1/1 Running 0 58m 10.176.7.9 km &lt;none&gt; &lt;none&gt;</span><br><span class="line">kube-system kube-proxy-mzqx6 1/1 Running 0 39m 10.176.12.157 kw2 &lt;none&gt; &lt;none&gt;</span><br><span class="line">kube-system kube-scheduler-km 1/1 Running 0 57m 10.176.7.9 km &lt;none&gt; &lt;none&gt;</span><br><span class="line">kube-system weave-net-fjzkw 2/2 Running 0 39m 10.176.12.157 kw2 &lt;none&gt; &lt;none&gt;</span><br><span class="line">kube-system weave-net-gjpnn 2/2 Running 0 42m 10.176.9.51 kw1 &lt;none&gt; &lt;none&gt;</span><br><span class="line">kube-system weave-net-pk682 2/2 Running 0 53m 10.176.7.9 km &lt;none&gt; &lt;none&gt;</span><br></pre></td></tr></table></figure>
+<h3 id="使用普通用户访问kubernetes"><a href="#使用普通用户访问kubernetes" class="headerlink" title="使用普通用户访问kubernetes"></a>使用普通用户访问kubernetes</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 在master节点执行</span><br><span class="line"># 切换到个人用户</span><br><span class="line">mkdir $HOME/.kube</span><br><span class="line">sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config</span><br><span class="line">sudo chown $(id -u):$(id -g) $HOME/.kube/config</span><br></pre></td></tr></table></figure>
+<p>然后将config文件内容拷贝至其他worker节点，或者个人PC里（$HOME/.kube/config），即可在worker以及个人PC上执行kubectl命令</p>
+<h3 id="link"><a href="#link" class="headerlink" title="link"></a>link</h3><p><a href="https://kubernetes.io/zh/docs/setup/independent/install-kubeadm/" target="_blank" rel="noopener">https://kubernetes.io/zh/docs/setup/independent/install-kubeadm/</a><br><a href="https://kubernetes.io/zh/docs/setup/independent/create-cluster-kubeadm/" target="_blank" rel="noopener">https://kubernetes.io/zh/docs/setup/independent/create-cluster-kubeadm/</a><br><a href="https://blog.csdn.net/mailjoin/article/details/79686934" target="_blank" rel="noopener">https://blog.csdn.net/mailjoin/article/details/79686934</a></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h1 id=&quot;use-kubeadmin-install-k8s-in-ubuntu&quot;&gt;&lt;a href=&quot;#use-kubeadmin-install-k8s-in-ubuntu&quot; class=&quot;headerlink&quot; title=&quot;use kubeadmin install k8s in ubuntu&quot;&gt;&lt;/a&gt;use kubeadmin install k8s in ubuntu&lt;/h1&gt;&lt;h3 id=&quot;准备环境&quot;&gt;&lt;a href=&quot;#准备环境&quot; class=&quot;headerlink&quot; title=&quot;准备环境&quot;&gt;&lt;/a&gt;准备环境&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;至少2台机器或虚拟机（一个master，多个worker）&lt;/li&gt;
+&lt;li&gt;每台机器 2 GB 内存或更多&lt;/li&gt;
+&lt;li&gt;每台机器 2 CPU 核心或更多&lt;/li&gt;
+&lt;li&gt;集群中的所有机器的网络彼此均能相互连接(公网和内网都可以)&lt;/li&gt;
+&lt;li&gt;禁用 Swap 交换分区&lt;/li&gt;
+&lt;/ul&gt;
+    
+    </summary>
+    
+    
+  </entry>
+  
+  <entry>
+    <title>jvm improve docker container detection and resource configuration usage</title>
+    <link href="https://wangsaisai.github.io/2019/06/13/jvm-docker/"/>
+    <id>https://wangsaisai.github.io/2019/06/13/jvm-docker/</id>
+    <published>2019-06-13T12:52:37.569Z</published>
+    <updated>2019-06-13T12:52:37.570Z</updated>
+    
+    <content type="html"><![CDATA[<h3 id="background"><a href="#background" class="headerlink" title="background"></a>background</h3><p>Java startup normally queries the operating system in order to setup runtime defaults for things such as the number of GC threads and default memory limits.</p>
+<p>While in docker container, JVM can’t get the resource limit info.</p>
+<p>This problem had been fixed in JDK8:8u191</p>
+<p>This article make a test for the new feature</p>
+<a id="more"></a>
+<h3 id="VM-info"><a href="#VM-info" class="headerlink" title="VM info"></a>VM info</h3><blockquote>
+<p>a linux vm in google cloud, with 6 vCPUS, 20GB memory</p>
+</blockquote>
+<h3 id="Test-In-VM"><a href="#Test-In-VM" class="headerlink" title="Test In VM"></a>Test In VM</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">bamboo@privacy:~$ free -g</span><br><span class="line">total used free shared buff/cache available</span><br><span class="line">Mem: 19 6 0 0 13 12</span><br><span class="line">Swap: 0 0 0</span><br><span class="line">bamboo@privacy:~$ cat /proc/cpuinfo| grep <span class="string">"processor"</span>| wc <span class="_">-l</span></span><br><span class="line">6</span><br><span class="line">bamboo@privacy:~$ java -version</span><br><span class="line">java version <span class="string">"1.8.0_171"</span></span><br><span class="line">Java(TM) SE Runtime Environment (build 1.8.0_171-b11)</span><br><span class="line">Java HotSpot(TM) 64-Bit Server VM (build 25.171-b11, mixed mode)</span><br><span class="line">bamboo@privacy:~$ java -XX:+PrintFlagsFinal | grep -E <span class="string">'InitialHeapSize|MaxHeapSize'</span></span><br><span class="line">uintx InitialHeapSize := 329252864 &#123;product&#125;</span><br><span class="line">uintx MaxHeapSize := 5263851520 &#123;product&#125;</span><br><span class="line">bamboo@privacy:~$ java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</span><br><span class="line">uintx ParallelGCThreads = 6 &#123;product&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="Test-in-docker-container-openjdk-8u181-without-resource-limit"><a href="#Test-in-docker-container-openjdk-8u181-without-resource-limit" class="headerlink" title="Test in docker container (openjdk:8u181) without resource limit"></a>Test in docker container (openjdk:8u181) without resource limit</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">bamboo@privacy:~$ docker run -ti openjdk:8u181-jdk</span><br><span class="line">root@c559e42aeae2:/<span class="comment"># free -g</span></span><br><span class="line">total used free shared buff/cache available</span><br><span class="line">Mem: 19 6 0 0 12 12</span><br><span class="line">Swap: 0 0 0</span><br><span class="line">root@c559e42aeae2:/<span class="comment"># cat /proc/cpuinfo| grep "processor"| wc -l</span></span><br><span class="line">6</span><br><span class="line">root@c559e42aeae2:/<span class="comment"># java -version</span></span><br><span class="line">openjdk version <span class="string">"1.8.0_181"</span></span><br><span class="line">OpenJDK Runtime Environment (build 1.8.0_181-8u181-b13-2~deb9u1-b13)</span><br><span class="line">OpenJDK 64-Bit Server VM (build 25.181-b13, mixed mode)</span><br><span class="line">root@c559e42aeae2:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E 'InitialHeapSize|MaxHeapSize'</span></span><br><span class="line">uintx InitialHeapSize := 329252864 &#123;product&#125;</span><br><span class="line">uintx MaxHeapSize := 5263851520 &#123;product&#125;</span><br><span class="line">root@c559e42aeae2:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</span></span><br><span class="line">uintx ParallelGCThreads = 6 &#123;product&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="Test-in-docker-container-openjdk-8u181-with-resource-limit"><a href="#Test-in-docker-container-openjdk-8u181-with-resource-limit" class="headerlink" title="Test in docker container (openjdk:8u181) with resource limit"></a>Test in docker container (openjdk:8u181) with resource limit</h3><blockquote>
+<p>8G memory, 2 cpus</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">bamboo@privacy:~$ docker run -it --cpus 2 -m 8g openjdk:8u181-jdk bash</span><br><span class="line">root@5d34cdeb3d5c:/<span class="comment">#</span></span><br><span class="line">root@5d34cdeb3d5c:/<span class="comment"># free -g</span></span><br><span class="line">total used free shared buff/cache available</span><br><span class="line">Mem: 19 6 0 0 12 12</span><br><span class="line">Swap: 0 0 0</span><br><span class="line">root@5d34cdeb3d5c:/<span class="comment"># cat /proc/cpuinfo| grep "processor"| wc -l</span></span><br><span class="line">6</span><br><span class="line">root@5d34cdeb3d5c:/<span class="comment"># java -version</span></span><br><span class="line">openjdk version <span class="string">"1.8.0_181"</span></span><br><span class="line">OpenJDK Runtime Environment (build 1.8.0_181-8u181-b13-2~deb9u1-b13)</span><br><span class="line">OpenJDK 64-Bit Server VM (build 25.181-b13, mixed mode)</span><br><span class="line">root@5d34cdeb3d5c:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E 'InitialHeapSize|MaxHeapSize'</span></span><br><span class="line">uintx InitialHeapSize := 329252864 &#123;product&#125;</span><br><span class="line">uintx MaxHeapSize := 5263851520 &#123;product&#125;</span><br><span class="line">root@5d34cdeb3d5c:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</span></span><br><span class="line">uintx ParallelGCThreads = 6 &#123;product&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="Test-in-docker-container-openjdk-8u212-without-resource-limit"><a href="#Test-in-docker-container-openjdk-8u212-without-resource-limit" class="headerlink" title="Test in docker container (openjdk:8u212) without resource limit"></a>Test in docker container (openjdk:8u212) without resource limit</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">bamboo@privacy:~$ docker run -ti openjdk:8u212-jdk</span><br><span class="line">root@9fd6c496e060:/<span class="comment"># free -g</span></span><br><span class="line">total used free shared buff/cache available</span><br><span class="line">Mem: 19 6 0 0 12 12</span><br><span class="line">Swap: 0 0 0</span><br><span class="line">root@9fd6c496e060:/<span class="comment"># cat /proc/cpuinfo| grep "processor"| wc -l</span></span><br><span class="line">6</span><br><span class="line">root@9fd6c496e060:/<span class="comment"># java -version</span></span><br><span class="line">openjdk version <span class="string">"1.8.0_212"</span></span><br><span class="line">OpenJDK Runtime Environment (build 1.8.0_212-b04)</span><br><span class="line">OpenJDK 64-Bit Server VM (build 25.212-b04, mixed mode)</span><br><span class="line">root@9fd6c496e060:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E 'InitialHeapSize|MaxHeapSize'</span></span><br><span class="line">uintx InitialHeapSize := 329252864 &#123;product&#125;</span><br><span class="line">uintx MaxHeapSize := 5263851520 &#123;product&#125;</span><br><span class="line">root@9fd6c496e060:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</span></span><br><span class="line">uintx ParallelGCThreads = 6 &#123;product&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="Test-in-docker-container-openjdk-8u212-with-resource-limit"><a href="#Test-in-docker-container-openjdk-8u212-with-resource-limit" class="headerlink" title="Test in docker container (openjdk:8u212) with resource limit"></a>Test in docker container (openjdk:8u212) with resource limit</h3><blockquote>
+<p>8G memory, 2 cpus</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">bamboo@privacy:~$ docker run -it --cpus 2 -m 8g openjdk:8u212-jdk bash</span><br><span class="line">root@6e90872b448b:/<span class="comment"># free -g</span></span><br><span class="line">total used free shared buff/cache available</span><br><span class="line">Mem: 19 6 0 0 12 12</span><br><span class="line">Swap: 0 0 0</span><br><span class="line">root@6e90872b448b:/<span class="comment"># cat /proc/cpuinfo| grep "processor"| wc -l</span></span><br><span class="line">6</span><br><span class="line">root@6e90872b448b:/<span class="comment"># java -version</span></span><br><span class="line">openjdk version <span class="string">"1.8.0_212"</span></span><br><span class="line">OpenJDK Runtime Environment (build 1.8.0_212-b04)</span><br><span class="line">OpenJDK 64-Bit Server VM (build 25.212-b04, mixed mode)</span><br><span class="line">root@6e90872b448b:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E 'InitialHeapSize|MaxHeapSize'</span></span><br><span class="line">uintx InitialHeapSize := 134217728 &#123;product&#125;</span><br><span class="line">uintx MaxHeapSize := 2147483648 &#123;product&#125;</span><br><span class="line">root@6e90872b448b:/<span class="comment"># java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</span></span><br><span class="line">uintx ParallelGCThreads = 2 &#123;product&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="compare-table"><a href="#compare-table" class="headerlink" title="compare table"></a>compare table</h3><table>
+<thead>
+<tr>
+<th>env\command</th>
+<th>free -g</th>
+<th>cat /proc/cpuinfo</th>
+<th>jvm InitialHeapSize</th>
+<th>jvm MaxHeapSize</th>
+<th>jvm ParallelGCThreads</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>VM</td>
+<td>20G</td>
+<td>6</td>
+<td>329252864 (314M)</td>
+<td>5263851520 (4.9G)</td>
+<td>6</td>
+</tr>
+<tr>
+<td>docker (openjdk:8u181)</td>
+<td>20G</td>
+<td>6</td>
+<td>329252864</td>
+<td>5263851520</td>
+<td>6</td>
+</tr>
+<tr>
+<td>docker (openjdk:8u181) resource limit [cpu:2, memory:8G]</td>
+<td>20G</td>
+<td>6</td>
+<td>329252864</td>
+<td>5263851520</td>
+<td>6</td>
+</tr>
+<tr>
+<td>docker (openjdk:8u212)</td>
+<td>20G</td>
+<td>6</td>
+<td>329252864</td>
+<td>5263851520</td>
+<td>6</td>
+</tr>
+<tr>
+<td>docker (openjdk:8u181) resource limit [cpu:2, memory:8G]</td>
+<td>20G</td>
+<td>6</td>
+<td>134217728 (128M)</td>
+<td>2147483648 (2G)</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+<h3 id="conclusion"><a href="#conclusion" class="headerlink" title="conclusion"></a>conclusion</h3><ul>
+<li>openjdk:8u212 can get the resource limit in docker container</li>
+</ul>
+<h3 id="implementation"><a href="#implementation" class="headerlink" title="implementation"></a>implementation</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"> julong os::Linux::available_memory() &#123;</span><br><span class="line">   // values in struct sysinfo are &quot;unsigned long&quot;</span><br><span class="line">   struct sysinfo si;</span><br><span class="line">-  sysinfo(&amp;si);</span><br><span class="line">+  julong avail_mem;</span><br><span class="line"> </span><br><span class="line">-  return (julong)si.freeram * si.mem_unit;</span><br><span class="line">+  if (OSContainer::is_containerized()) &#123;</span><br><span class="line">+    jlong mem_limit, mem_usage;</span><br><span class="line">+    if ((mem_limit = OSContainer::memory_limit_in_bytes()) &gt; 0) &#123;</span><br><span class="line">+      if ((mem_usage = OSContainer::memory_usage_in_bytes()) &gt; 0) &#123;</span><br><span class="line">+        if (mem_limit &gt; mem_usage) &#123;</span><br><span class="line">+          avail_mem = (julong)mem_limit - (julong)mem_usage;</span><br><span class="line">+        &#125; else &#123;</span><br><span class="line">+          avail_mem = 0;</span><br><span class="line">+        &#125;</span><br><span class="line">+        log_trace(os)(&quot;available container memory: &quot; JULONG_FORMAT, avail_mem);</span><br><span class="line">+        return avail_mem;</span><br><span class="line">+      &#125; else &#123;</span><br><span class="line">+        log_debug(os,container)(&quot;container memory usage call failed: &quot; JLONG_FORMAT, mem_usage);</span><br><span class="line">+      &#125;</span><br><span class="line">+    &#125; else &#123;</span><br><span class="line">+      log_debug(os,container)(&quot;container memory unlimited or failed: &quot; JLONG_FORMAT, mem_limit);</span><br><span class="line">+    &#125;</span><br><span class="line">+  &#125;</span><br><span class="line">+</span><br><span class="line">+  sysinfo(&amp;si);</span><br><span class="line">+  avail_mem = (julong)si.freeram * si.mem_unit;</span><br><span class="line">+  log_trace(os)(&quot;available memory: &quot; JULONG_FORMAT, avail_mem);</span><br><span class="line">+  return avail_mem;</span><br><span class="line"> &#125;</span><br><span class="line">  </span><br><span class="line"> julong os::physical_memory() &#123;</span><br><span class="line">-  return Linux::physical_memory();</span><br><span class="line">+  if (OSContainer::is_containerized()) &#123;</span><br><span class="line">+    jlong mem_limit;</span><br><span class="line">+    if ((mem_limit = OSContainer::memory_limit_in_bytes()) &gt; 0) &#123;</span><br><span class="line">+      log_trace(os)(&quot;total container memory: &quot; JLONG_FORMAT, mem_limit);</span><br><span class="line">+      return (julong)mem_limit; </span><br><span class="line">+    &#125; else &#123;</span><br><span class="line">+      if (mem_limit == OSCONTAINER_ERROR) &#123;</span><br><span class="line">+        log_debug(os,container)(&quot;container memory limit call failed&quot;);</span><br><span class="line">+      &#125;</span><br><span class="line">+      if (mem_limit == -1) &#123;</span><br><span class="line">+        log_debug(os,container)(&quot;container memory unlimited, using host value&quot;);</span><br><span class="line">+      &#125;</span><br><span class="line">+    &#125;</span><br><span class="line">+  &#125;</span><br><span class="line">+</span><br><span class="line">+  jlong phys_mem = Linux::physical_memory();</span><br><span class="line">+  log_trace(os)(&quot;total system memory: &quot; JLONG_FORMAT, phys_mem);</span><br><span class="line">+  return phys_mem;</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+<h3 id="link"><a href="#link" class="headerlink" title="link"></a>link</h3><p>JDK-8146115 : Improve docker container detection and resource configuration usage </p>
+<p>jira : <a href="https://bugs.java.com/bugdatabase/view_bug.do?bug_id=JDK-8146115" target="_blank" rel="noopener">https://bugs.java.com/bugdatabase/view_bug.do?bug_id=JDK-8146115</a></p>
+<p>patch : <a href="http://cr.openjdk.java.net/~bobv/8146115/webrev.03/open.patch" target="_blank" rel="noopener">http://cr.openjdk.java.net/~bobv/8146115/webrev.03/open.patch</a></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h3 id=&quot;background&quot;&gt;&lt;a href=&quot;#background&quot; class=&quot;headerlink&quot; title=&quot;background&quot;&gt;&lt;/a&gt;background&lt;/h3&gt;&lt;p&gt;Java startup normally queries the operating system in order to setup runtime defaults for things such as the number of GC threads and default memory limits.&lt;/p&gt;
+&lt;p&gt;While in docker container, JVM can’t get the resource limit info.&lt;/p&gt;
+&lt;p&gt;This problem had been fixed in JDK8:8u191&lt;/p&gt;
+&lt;p&gt;This article make a test for the new feature&lt;/p&gt;
+    
+    </summary>
+    
+    
+  </entry>
+  
+  <entry>
+    <title>分布式系统相关理论</title>
+    <link href="https://wangsaisai.github.io/2019/05/23/distribute_theory/"/>
+    <id>https://wangsaisai.github.io/2019/05/23/distribute_theory/</id>
+    <published>2019-05-23T13:23:25.672Z</published>
+    <updated>2019-05-23T13:26:17.715Z</updated>
+    
+    <content type="html"><![CDATA[<h3 id="CAP理论"><a href="#CAP理论" class="headerlink" title="CAP理论"></a>CAP理论</h3><p>2000年7月，加州大学伯克利分校的Eric Brewer教授在ACM PODC会议上提出CAP猜想。2年后，麻省理工学院的Seth Gilbert和Nancy Lynch从理论上证明了CAP。之后，CAP理论正式成为分布式计算领域的公认定理。 </p>
+<p>CAP理论为：一个分布式系统最多只能同时满足一致性（Consistency）、可用性（Availability）和分区容错性（Partition tolerance）这三项中的两项。 </p>
+<a id="more"></a>
+<h5 id="一致性（Consistency）"><a href="#一致性（Consistency）" class="headerlink" title="一致性（Consistency）"></a>一致性（Consistency）</h5><p>一致性指“all nodes see the same data at the same time”，即更新操作成功并返回客户端完成后，所有节点在同一时间的数据完全一致。 </p>
+<h5 id="可用性（Availability）"><a href="#可用性（Availability）" class="headerlink" title="可用性（Availability）"></a>可用性（Availability）</h5><p>可用性指“Reads and writes always succeed”，即服务一直可用，而且是正常响应时间。 </p>
+<h5 id="分区容错性（Partition-tolerance）"><a href="#分区容错性（Partition-tolerance）" class="headerlink" title="分区容错性（Partition tolerance）"></a>分区容错性（Partition tolerance）</h5><p>分区容错性指“the system continues to operate despite arbitrary message loss or failure of part of the system”，即分布式系统在遇到某节点或网络分区故障的时候，仍然能够对外提供满足一致性和可用性的服务。 </p>
+<h3 id="CAP权衡"><a href="#CAP权衡" class="headerlink" title="CAP权衡"></a>CAP权衡</h3><p>通过CAP理论，我们知道无法同时满足一致性、可用性和分区容错性这三个特性，那要舍弃哪个呢？<br>对于多数大型互联网应用的场景，主机众多、部署分散，而且现在的集群规模越来越大，所以节点故障、网络故障是常态，而且要保证服务可用性达到N个9，即保证P和A，舍弃C（退而求其次保证最终一致性）。虽然某些地方会影响客户体验，但没达到造成用户流程的严重程度。<br>对于涉及到钱财这样不能有一丝让步的场景，C必须保证。网络发生故障宁可停止服务，这是保证CA，舍弃P。貌似这几年国内银行业发生了不下10起事故，但影响面不大，报到也不多，广大群众知道的少。还有一种是保证CP，舍弃A。例如网络故障事只读不写。<br>孰优孰略，没有定论，只能根据场景定夺，适合的才是最好的。 </p>
+<h3 id="BASE理论"><a href="#BASE理论" class="headerlink" title="BASE理论"></a>BASE理论</h3><p>eBay的架构师Dan Pritchett源于对大规模分布式系统的实践总结，在ACM上发表文章提出BASE理论，BASE理论是对CAP理论的延伸，核心思想是即使无法做到强一致性（Strong Consistency，CAP的一致性就是强一致性），但应用可以采用适合的方式达到最终一致性（Eventual Consitency）。<br>BASE是指基本可用（Basically Available）、软状态（ Soft State）、最终一致性（ Eventual Consistency）。 </p>
+<h5 id="基本可用（Basically-Available）"><a href="#基本可用（Basically-Available）" class="headerlink" title="基本可用（Basically Available）"></a>基本可用（Basically Available）</h5><p>基本可用是指分布式系统在出现故障的时候，允许损失部分可用性，即保证核心可用。<br>电商大促时，为了应对访问量激增，部分用户可能会被引导到降级页面，服务层也可能只提供降级服务。这就是损失部分可用性的体现。 </p>
+<h5 id="软状态（-Soft-State）"><a href="#软状态（-Soft-State）" class="headerlink" title="软状态（ Soft State）"></a>软状态（ Soft State）</h5><p>软状态是指允许系统存在中间状态，而该中间状态不会影响系统整体可用性。分布式存储中一般一份数据至少会有三个副本，允许不同节点间副本同步的延时就是软状态的体现。mysql replication的异步复制也是一种体现。 </p>
+<h5 id="最终一致性（-Eventual-Consistency）"><a href="#最终一致性（-Eventual-Consistency）" class="headerlink" title="最终一致性（ Eventual Consistency）"></a>最终一致性（ Eventual Consistency）</h5><p>最终一致性是指系统中的所有数据副本经过一定时间后，最终能够达到一致的状态。弱一致性和强一致性相反，最终一致性是弱一致性的一种特殊情况。 </p>
+<h3 id="ACID和BASE的区别与联系"><a href="#ACID和BASE的区别与联系" class="headerlink" title="ACID和BASE的区别与联系"></a>ACID和BASE的区别与联系</h3><p>ACID是传统数据库常用的设计理念，追求强一致性模型。BASE支持的是大型分布式系统，提出通过牺牲强一致性获得高可用性。<br>ACID和BASE代表了两种截然相反的设计哲学</p>
+<p>在分布式系统设计的场景中，系统组件对一致性要求是不同的，因此ACID和BASE又会结合使用。 </p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h3 id=&quot;CAP理论&quot;&gt;&lt;a href=&quot;#CAP理论&quot; class=&quot;headerlink&quot; title=&quot;CAP理论&quot;&gt;&lt;/a&gt;CAP理论&lt;/h3&gt;&lt;p&gt;2000年7月，加州大学伯克利分校的Eric Brewer教授在ACM PODC会议上提出CAP猜想。2年后，麻省理工学院的Seth Gilbert和Nancy Lynch从理论上证明了CAP。之后，CAP理论正式成为分布式计算领域的公认定理。 &lt;/p&gt;
+&lt;p&gt;CAP理论为：一个分布式系统最多只能同时满足一致性（Consistency）、可用性（Availability）和分区容错性（Partition tolerance）这三项中的两项。 &lt;/p&gt;
+    
+    </summary>
+    
+    
+  </entry>
+  
+  <entry>
+    <title>《大设计》读书笔记 -- 致敬霍金</title>
+    <link href="https://wangsaisai.github.io/2018/03/18/Stephen_William_Hawking/"/>
+    <id>https://wangsaisai.github.io/2018/03/18/Stephen_William_Hawking/</id>
+    <published>2018-03-18T15:11:07.736Z</published>
+    <updated>2018-03-18T15:11:07.736Z</updated>
+    
+    <content type="html"><![CDATA[<p>本书的主题是：理解生命，万物和宇宙的存在。 凝结了作者对科学和哲学的探索成果，以及对这些学科的未来展望。</p>
+<h1 id="存在之谜"><a href="#存在之谜" class="headerlink" title="存在之谜"></a>存在之谜</h1><h3 id="生命，宇宙和万物的终极问题"><a href="#生命，宇宙和万物的终极问题" class="headerlink" title="生命，宇宙和万物的终极问题:"></a>生命，宇宙和万物的终极问题:</h3><ul>
+<li><p>为什么存在实在之物，而非一无所有？ </p>
+</li>
+<li><p>我们为什么存在？ </p>
+</li>
+<li><p>为什么是这一族特定的定律而非别的？</p>
+</li>
+</ul>
+<h1 id="定律制约"><a href="#定律制约" class="headerlink" title="定律制约"></a>定律制约</h1><p>古人对自然方式的无知，导致他们发明神。神高兴时，人类便享受好天气，和平，并免于自然灾害和疾病；当他们不高兴时，干旱，战争，瘟疫和传染病就降临人间。</p>
+<p>大约2600年前，米利都的泰勒斯（约公元前624年－约公元前546年，古希腊时期的哲学家和科学家，希腊七贤之一，被后人称为“科学和哲学之祖”）抛弃了神话，通过理性假说来解释自然现象。</p>
+<p>泰勒斯的家是名叫爱奥尼亚地区的知识者中心之一，古代爱奥尼亚的学者是最早通过自然定律而非神学来解释自然现象的人，是人类思想史上的一座巨大的里程碑。</p>
+<p>自然遵循着一致的可被解释的原则的思想产生，开始了利用宇宙概念来取代神权统治的长期过程。</p>
+<a id="more"></a>
+<p>17世纪出现了自然定律的现代概念。<br>伽利略在其多数著作中不用“定律”这个术语，但他的确发现了大量定律，并且提出了两个重要原则：</p>
+<ul>
+<li>观测是科学的基础</li>
+<li>科学的目标是研究存在于物理现象之间的定量关系。</li>
+</ul>
+<p>如果自然由定律制约，就产生3个问题：</p>
+<ol>
+<li>定律的起源是什么？ </li>
+<li>定律存在任何例外即奇迹吗？ </li>
+<li>是否可能只存在一族定律？</li>
+</ol>
+<p>第一个问题，传统答案——也就是开普勒，伽利略，牛顿的答案——定律是上帝的杰作。</p>
+<p>如果利用上帝来回答第一个问题，第二个问题随之而来，是否存在奇迹，也就是定律有例外吗？</p>
+<p>第二个问题的答案，意见明显分歧。柏拉图和亚里士多德都认为–定律不存在例外。圣经的观点—上帝不仅创造定律，而且可应祈祷者的祈求而制造例外，因此基督教思想家都坚持上帝能够中止定律以完成奇迹。</p>
+<p>拉普拉斯清楚提出科学决定论第一人：给出宇宙一个时刻的状态，定律的完备集合就能完全确定其未来和过去。</p>
+<p>拉普拉斯的科学决定论就是现代科学对第二个问题的答案。它是现代科学整体的基础，是贯穿本书的一个重要原则。</p>
+<p>本书对第二个问题的回答：不存在奇迹或者自然定律的例外。</p>
+<h1 id="何为实在"><a href="#何为实在" class="headerlink" title="何为实在"></a>何为实在</h1><p>意大利禁止把金鱼养在弯曲的鱼缸里，原因是金鱼向外凝视时会得到实在的弯曲景色，因此将金鱼养在弯曲的鱼缸里是残酷的。</p>
+<p>然而，我们何以得知我们拥有真正的没被弯曲的实在图像？</p>
+<p>在科幻电影《黑客帝国》（Metrix）中，人类不知不觉地生活在由智慧电脑制造的模拟实在之中，过得平安而满意。而真实世界中，电脑吮吸着活人的生物电能，奴役着全人类。</p>
+<p>如果我们生活在合成的虚拟世界中，时间就不必具有任何逻辑或一致性或服从任何定律。</p>
+<p><strong>但是如果Metrix中的智慧电脑或者外星人实施一致的定律，我们就无法得知在这模拟的实在背后是否还有另一个实在。</strong></p>
+<p><strong>如果在模拟世界中的生物不能从外面注视到他们的宇宙中，他们就没有理由怀疑他们自己的实在图像。</strong></p>
+<p>从这些例子中，就可得到本书非常重要的结论：“不存在与图像或理论无关的实在概念”</p>
+<h2 id="实在论"><a href="#实在论" class="headerlink" title="实在论"></a>实在论</h2><h3 id="哲学中的实在论"><a href="#哲学中的实在论" class="headerlink" title="哲学中的实在论"></a>哲学中的实在论</h3><p>经典科学是基于这样的信念：存在一个真实的外部世界，其性质是确定的，并与感知他们的观察者无关。在哲学中，这一信念称为“实在论”。</p>
+<h3 id="依赖模型实在论"><a href="#依赖模型实在论" class="headerlink" title="依赖模型实在论"></a>依赖模型实在论</h3><p>没办法将观察者–我们–从我们对世界的认识中排除，认识是通过感觉过程以及通过思维和推理方式产生的。我们的认识不是直接的，而是由一种类似透镜之物-我们的大脑解释结构塑造的。</p>
+<p>大脑从视网膜读到二维的数据排列并由它创生三维空间的印象。</p>
+<p>大脑在建立模型方面非常称职。如果人们配上一种上下颠倒眼中之像的眼镜，大脑在一段时间后就会改变模型，使之重新看到正确方向的东西。如果摘下眼镜，一段时间内，看到的世界是上下颠倒的，然后会再次适应。</p>
+<p>依赖模型实在论解决或至少避免的另一个问题是存在的意义。</p>
+<p>在我们看不到的亚原子例子的情形下，电子是一个有用的模型来解释电视显像管上的光点以及许多其他现象。<br>我们也看不见夸克，它是解释原子核中质子和中子性质的一个模型。夸克模型提出后，人们一直争议一个问题：如果你永远无法分离出一个夸克，说夸克真的存在是否有意义。</p>
+<p>依赖模型实在论能够为讨论如下述之类的问题提供框架：如果时间是在有限的过去创生的，那么在那之前发生了什么？</p>
+<p>早期基督教哲学家圣奥古斯丁说，时间是上帝创造世界的一个性质，时间在创生之前不存在。这是一个可能的模型。</p>
+<p>不过人们还拥有一个不同的模型，在这模型中，时间回溯到137亿年前的幽州大爆炸。该模型解释了包括历史和地学的证剧在内的大部分现代观测。</p>
+<p>有些人支持时间能回到大爆炸还早的模型，宇宙演化的定律似乎在大爆炸处崩溃，如果这样，创造一个包含早于大爆炸的时间模型就没有意义，因为那时存在的东西对于现在没有任何可观测的后果，如此我们不妨坚持大爆炸即是世界创生这一观念。</p>
+<p>一个模型是个好模型，如果：</p>
+<ol>
+<li>它是优雅的，</li>
+<li>它包含很少任意或者可调整的元素，</li>
+<li>它和全部已有的观测一致并能解释之，</li>
+<li>它对将来的观测做详细的预言，如果这些预言不成立，观测就能证伪这个模型。</li>
+</ol>
+<p>上面的标准显然是主观的。例如，优雅就不是容易测量的某种东西，但科学家们非常重视它，因为自然定律意味着把许多特殊情况压缩成一个简单的公式。正如爱因斯坦所说：<strong>一个理论应该尽可能简单，但不能更简单了。</strong></p>
+<h1 id="可择历史"><a href="#可择历史" class="headerlink" title="可择历史"></a>可择历史</h1><p>海森堡在1926年表述的不确定性定理：一些成对的物理数据，比如一个粒子的位置和速度，我们是没有能力同时测量的精确的。</p>
+<p>量子物理似乎会削弱自然受定律制约的观念，但事实并非如此。它反而引导我们去接收决定论的新形式：给的系统在某一瞬间的态，自然定律确定各种将来和过去的概率，而非肯定地确定将来和过去。</p>
+<p>牛顿定律允许人们计算过去的完整图像。而根据量子物理，宇宙并没有一个单一的过去或者历史，而是具有每一可能的历史，每个历史都有自身的概率。</p>
+<h1 id="万物理论"><a href="#万物理论" class="headerlink" title="万物理论"></a>万物理论</h1><p>今天描述电磁场的方程被称作麦克斯韦方程。<br>麦克斯韦方程要求电磁波以每秒大约30万千米的速度行进。但麦克斯韦方程中的光速是相对于什么而测量的？（他的方程毕竟适用于整个宇宙）</p>
+<p>1905年，爱因斯坦发表论文“论动体的电动力学”（第一篇狭义相对论论文）。在论文中，他做了一个简单的假设：物理定律，尤其是光速，对于所有匀速运动的观察者都显得相同。（这个观念需要我们有关空间和时间的概念来一番变革）</p>
+<p>由于爱因斯坦的研究，物理学家们意识到，时间不能视为与三维空间分离。时间和空间是相互纠缠的。物理学家将空间和时间结合称为“时空”。时空不是平坦的，而是被出在其中的质量和能量弯曲或变形。</p>
+<p>广义相对论模型，成功语言诸如引力波和黑洞的新效应。但它和牛顿定律一样，都还是经典理论。都认为宇宙具有单一历史的模型。这些模型在原子和亚原子水平上和观测不相符合。</p>
+<h2 id="4种自然力"><a href="#4种自然力" class="headerlink" title="4种自然力"></a>4种自然力</h2><ol>
+<li>引力。最弱的力。但它是长程力，并且作为吸引力作用于宇宙中的万物。对于大物体，所有引力叠加，并且能够支配其他所有的力。</li>
+<li>电磁力。长程力。比引力强，只作用在带电荷的例子上，同种电荷相斥，异种电荷相吸。大物体的电力相互抵消，但他们在原子分子尺度起支配作用。电磁力决定着全部化学和生物过程。</li>
+<li>弱核力。该力引起放射性，在恒星以及早期宇宙中的元素形成起及其重要作用。日常生活中，接触不到。</li>
+<li>强核力。该力把原子核中的质子和中子束缚在一起。强力是太阳和核动力的能源。生活中没有直接接触。</li>
+</ol>
+<p>M理论具有十一维时空。M理论具有允许多大10的500次方的不同内空间的解，意味着它允许10的500次方个不同的宇宙，各自拥有不同的定律，其中只有一个对应我们所知的宇宙。</p>
+<p><em>笔者注：M理论这一块笔者未完全理解…..</em></p>
+<h1 id="选择宇宙"><a href="#选择宇宙" class="headerlink" title="选择宇宙"></a>选择宇宙</h1><h2 id="宇宙创生"><a href="#宇宙创生" class="headerlink" title="宇宙创生"></a>宇宙创生</h2><p>暴胀：宇宙在0.00000……00001秒内膨胀了100000……00000倍。这似乎违反相对论中没有任何东西可比光运动得更快。但这个速度极限并不适用于空间本身的膨胀。</p>
+<p>物质和能量弯曲空间，改变物体的路径。<br>物质和能量弯曲时间，使时间维度和空间维度“混合”</p>
+<h3 id="时间开端"><a href="#时间开端" class="headerlink" title="时间开端"></a>时间开端</h3><p>时间开端的问题类似世界边缘的问题。当人们意识到世界不是平板，而是一个曲面时，世界边缘问题就解决了。</p>
+<p>如果时间有开端，就应该存在某者（即上帝）将火车开动。</p>
+<p>广义相对论把时间和空间统一成时空，但时间仍有异于空间，要么具有开端和终结，要么无线延伸。</p>
+<p>然而，一旦我们将将量子论效应加到相对论上，极端情况下发生的弯曲可达到如此巨大的程度，以至于时间就像空间的又一维那样行为。</p>
+<p>在早期宇宙—-当宇宙小到足够让广义相对论和量子论一起制约时—-有效存在四维空间而不存在时间。这超出我们的经验，却未超出我们的想象或数学。</p>
+<p>意识到时间可像空间的又一方向那样行为意味着，以类似我们摆脱世界边缘问题的方式，人们也可以摆脱时间有个起始的问题。</p>
+<p>历史必须是无边界的闭合面的思想被称为无边界条件。</p>
+<p><em>笔者注：无边界宇宙模型是霍金自己的观点，并未受到所有物理学家认可</em></p>
+<h1 id="表观奇迹"><a href="#表观奇迹" class="headerlink" title="表观奇迹"></a>表观奇迹</h1><p>能够支持智慧观察者的复杂结构的出现似乎是非常脆弱的。若非在物理定律的精确细节上的一系列令人吃惊的巧合，人类和类似的生命形式永远不可能形成。</p>
+<p>很多人愿意我们利用这些巧合作为上帝工作的证据。宇宙是上帝设计来供人类居住的观念出现在神话中。这么多自然定律被极端地微调到适合我们生存，使某些人认为这个大设计是某一伟大设计者的作品的旧观念。</p>
+<p>多宇宙思想不是为了解释微调的奇迹而发明出来的，它是无边界条件还有现代宇宙学中其他许多理论的一个顺利成章的结果。</p>
+<h1 id="伟大设计"><a href="#伟大设计" class="headerlink" title="伟大设计"></a>伟大设计</h1><p>自然定律告诉我们宇宙如何行为，但未回答我们在本书开头提出的为何的质问。</p>
+<ul>
+<li>为什么存在实在之物，而非一无所有？ </li>
+<li>我们为什么存在？ </li>
+<li>为什么是这一族特定的定律而非别的？</li>
+</ul>
+<p>有人宣称是上帝以某种方式创造了宇宙。倘若答案是上帝，问题只不过被转换成谁创造了上帝的问题。按照这种观点，存在不需要造物主的实体，称作上帝，这就可接受了。</p>
+<p>自发创生是存在实在之物而非一无所有，为什么宇宙存在，为什么我们存在的原因。不必祈求上帝点燃导火索使宇宙运行。</p>
+<p>M理论是爱因斯坦所希望找到的统一理论。如果该理论被观测所证实，它就是故去3000多年来一场智力探索的成功终结。我们就可以找到那个大设计了。</p>
+<h1 id="附录："><a href="#附录：" class="headerlink" title="附录："></a>附录：</h1><p>霍金生平：</p>
+<ol>
+<li>1942年1月8日出生于英国的牛津,当天是伽利略去世300周年纪念日</li>
+<li>1950年 举家迁往圣奥尔本斯</li>
+<li>1959年 入英国牛津大学</li>
+<li>1962年 在牛津大学完成物理学学位课程搬到剑桥大学攻读研究生</li>
+<li>1963年 霍金被诊断患有运动神经元疾病</li>
+<li>1965年 被授予剑桥大学博士学位 / 与珍·王尔德简·王尔德结婚</li>
+<li>1970年 霍金研究黑洞的特性。他预言来自黑洞现在叫霍金辐射的射线辐射及黑洞的表面积永远也不会减少。</li>
+<li>1973年 首部著作《空时的大型结构》出版，发现霍金辐射</li>
+<li>1974年 被选为英国皇家学会会员。他继续证明黑洞有温度黑洞发出热辐射以及气化导致质量减少。</li>
+<li>1981/1982年 参加梵蒂冈宇宙学大会宣布无边界构想/《超时空和超引力》出版</li>
+<li>1985年 在瑞士病倒 / 实行气管造口手术从而失去语言能力使用带造音器的计算机。 / 第一次来到中国，到中国科技大学。在科大水上讲演厅做天体物理的学术报告。</li>
+<li>1988年 出版《时间简史—从大爆炸到黑洞》获沃尔夫基金奖,成为关于量子物理学与相对论最畅销的书。</li>
+<li>1990年 与结婚25年之久的妻子简·怀尔德离婚。</li>
+<li>1991年 《时间简史》同名电影上映</li>
+<li>1995年 9月16日与他的护士伊莱恩·梅森结婚</li>
+<li>2001年 10月又一部力作《果壳中的宇宙》出版发行</li>
+<li>2004年 霍金修正了自己原来的“黑洞悖论”观点错了信息应该守恒。</li>
+<li>2006年 与第二任妻子伊莱恩离婚 / 第二次来中国，在香港科技大学体育馆主持一个题为「宇宙的起源」的演讲，在人民大会堂向北京的公众讲述《宇宙的起源》。</li>
+<li>2007年 与露西吉高佛尔德合著的儿童科幻小说《乔治通往宇宙的秘密钥匙》在法国出版发行。这本书是霍金写的第一本儿童读物霍金在书中向儿童解释了自己关于时间和宇宙方面的学说。</li>
+<li>2010年 出版《大设计》，《时间简史》之后霍金的最重要的著作，凝结了霍金20多年来对科学和哲学的思考成果</li>
+<li>2012年 参与2012年夏季残奥会开幕式演出。</li>
+<li>2018年 3月14日凌晨3时46分，史蒂芬·霍金去世，享年76岁。当天是圆周率日，也是爱因斯坦诞辰</li>
+</ol>
+<p>附一张霍金教授1985年访问中国科学技术大学时留影：<br><img src="https://www.ustcif.org/global/files/Image/News/UstcifNews/2016/Feb/FangLizhi23.JPG" alt="霍金在中国科大"><br>前排左起：B. Carr, 霍金专用翻译（霍金语到英语），S. 霍金，霍金的护士。</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;本书的主题是：理解生命，万物和宇宙的存在。 凝结了作者对科学和哲学的探索成果，以及对这些学科的未来展望。&lt;/p&gt;
+&lt;h1 id=&quot;存在之谜&quot;&gt;&lt;a href=&quot;#存在之谜&quot; class=&quot;headerlink&quot; title=&quot;存在之谜&quot;&gt;&lt;/a&gt;存在之谜&lt;/h1&gt;&lt;h3 id=&quot;生命，宇宙和万物的终极问题&quot;&gt;&lt;a href=&quot;#生命，宇宙和万物的终极问题&quot; class=&quot;headerlink&quot; title=&quot;生命，宇宙和万物的终极问题:&quot;&gt;&lt;/a&gt;生命，宇宙和万物的终极问题:&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;p&gt;为什么存在实在之物，而非一无所有？ &lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;我们为什么存在？ &lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;为什么是这一族特定的定律而非别的？&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1 id=&quot;定律制约&quot;&gt;&lt;a href=&quot;#定律制约&quot; class=&quot;headerlink&quot; title=&quot;定律制约&quot;&gt;&lt;/a&gt;定律制约&lt;/h1&gt;&lt;p&gt;古人对自然方式的无知，导致他们发明神。神高兴时，人类便享受好天气，和平，并免于自然灾害和疾病；当他们不高兴时，干旱，战争，瘟疫和传染病就降临人间。&lt;/p&gt;
+&lt;p&gt;大约2600年前，米利都的泰勒斯（约公元前624年－约公元前546年，古希腊时期的哲学家和科学家，希腊七贤之一，被后人称为“科学和哲学之祖”）抛弃了神话，通过理性假说来解释自然现象。&lt;/p&gt;
+&lt;p&gt;泰勒斯的家是名叫爱奥尼亚地区的知识者中心之一，古代爱奥尼亚的学者是最早通过自然定律而非神学来解释自然现象的人，是人类思想史上的一座巨大的里程碑。&lt;/p&gt;
+&lt;p&gt;自然遵循着一致的可被解释的原则的思想产生，开始了利用宇宙概念来取代神权统治的长期过程。&lt;/p&gt;
+    
+    </summary>
+    
+    
+  </entry>
+  
+  <entry>
+    <title>java 9 turorial</title>
+    <link href="https://wangsaisai.github.io/2018/02/09/java-9-turorial/"/>
+    <id>https://wangsaisai.github.io/2018/02/09/java-9-turorial/</id>
+    <published>2018-02-09T13:06:47.912Z</published>
+    <updated>2018-02-09T13:06:47.912Z</updated>
+    
+    <content type="html"><![CDATA[<h2 id="JShell"><a href="#JShell" class="headerlink" title="JShell"></a>JShell</h2><blockquote>
+<p>交互式执行java代码</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">jshell&gt; <span class="keyword">int</span> a=<span class="number">10</span></span><br><span class="line">a ==&gt; <span class="number">10</span></span><br><span class="line"></span><br><span class="line">jshell&gt; a*<span class="number">7</span>+<span class="number">5</span></span><br><span class="line">$<span class="number">30</span> ==&gt; <span class="number">75</span></span><br><span class="line"></span><br><span class="line">jshell&gt; System.out.println(<span class="string">"hello"</span>)</span><br><span class="line">hello</span><br><span class="line"></span><br><span class="line">jshell&gt; <span class="function"><span class="keyword">void</span> <span class="title">method</span><span class="params">(<span class="keyword">int</span> x, <span class="keyword">int</span> y)</span> </span>&#123;</span><br><span class="line">   ...&gt;   System.out.println(x+y);</span><br><span class="line">   ...&gt; &#125;</span><br><span class="line">|  已修改 方法 method(<span class="keyword">int</span>,<span class="keyword">int</span>)</span><br><span class="line"></span><br><span class="line">jshell&gt; method(<span class="number">10</span>,<span class="number">20</span>);</span><br><span class="line"><span class="number">30</span></span><br></pre></td></tr></table></figure>
+<a id="more"></a>
+<h2 id="不可变List-Set-Map"><a href="#不可变List-Set-Map" class="headerlink" title="不可变List, Set, Map"></a>不可变List, Set, Map</h2><h4 id="Immutable-List"><a href="#Immutable-List" class="headerlink" title="Immutable List"></a>Immutable List</h4><figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">jshell&gt; List l = List.of(<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>);</span><br><span class="line">l ==&gt; [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]</span><br><span class="line"></span><br><span class="line">jshell&gt; l.add(<span class="number">4</span>);</span><br><span class="line">|  警告:</span><br><span class="line">|  对作为原始类型java.util.List的成员的add(E)的调用未经过检查</span><br><span class="line">|  l.add(<span class="number">4</span>);</span><br><span class="line">|  ^------^</span><br><span class="line">|  java.lang.UnsupportedOperationException thrown:</span><br><span class="line">|        at ImmutableCollections.uoe (ImmutableCollections.java:<span class="number">71</span>)</span><br><span class="line">|        at ImmutableCollections$AbstractImmutableList.add (ImmutableCollections.java:<span class="number">77</span>)</span><br><span class="line">|        at (#36:1)</span><br></pre></td></tr></table></figure>
+<h4 id="Immutable-Set"><a href="#Immutable-Set" class="headerlink" title="Immutable Set"></a>Immutable Set</h4><figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">jshell&gt; Set set = Set.of(<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>);</span><br><span class="line">set ==&gt; [<span class="number">1</span>, <span class="number">3</span>, <span class="number">2</span>]</span><br><span class="line"></span><br><span class="line">jshell&gt; set.add(<span class="number">4</span>);</span><br><span class="line">|  警告:</span><br><span class="line">|  对作为原始类型java.util.Set的成员的add(E)的调用未经过检查</span><br><span class="line">|  set.add(<span class="number">4</span>);</span><br><span class="line">|  ^--------^</span><br><span class="line">|  java.lang.UnsupportedOperationException thrown:</span><br><span class="line">|        at ImmutableCollections.uoe (ImmutableCollections.java:<span class="number">71</span>)</span><br><span class="line">|        at ImmutableCollections$AbstractImmutableSet.add (ImmutableCollections.java:<span class="number">281</span>)</span><br><span class="line">|        at (#38:1)</span><br></pre></td></tr></table></figure>
+<h4 id="Immutable-Map"><a href="#Immutable-Map" class="headerlink" title="Immutable Map"></a>Immutable Map</h4><figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">jshell&gt; Map.of()</span><br><span class="line">$<span class="number">39</span> ==&gt; &#123;&#125;</span><br><span class="line"></span><br><span class="line">jshell&gt; Map map = Map.of(<span class="number">1</span>, <span class="string">"a"</span>, <span class="number">2</span>, <span class="string">"b"</span>, <span class="number">3</span>, <span class="string">"c"</span>);</span><br><span class="line">map ==&gt; &#123;<span class="number">1</span>=a, <span class="number">3</span>=c, <span class="number">2</span>=b&#125;</span><br><span class="line"></span><br><span class="line">jshell&gt; map.put(<span class="number">4</span>, <span class="string">"d"</span>);</span><br><span class="line">|  警告:</span><br><span class="line">|  对作为原始类型java.util.Map的成员的put(K,V)的调用未经过检查</span><br><span class="line">|  map.put(<span class="number">4</span>, <span class="string">"d"</span>);</span><br><span class="line">|  ^-------------^</span><br><span class="line">|  java.lang.UnsupportedOperationException thrown:</span><br><span class="line">|        at ImmutableCollections.uoe (ImmutableCollections.java:<span class="number">71</span>)</span><br><span class="line">|        at ImmutableCollections$AbstractImmutableMap.put (ImmutableCollections.java:<span class="number">558</span>)</span><br><span class="line">|        at (#41:1)</span><br></pre></td></tr></table></figure>
+<h2 id="接口私有方法-Private-Method-in-interface"><a href="#接口私有方法-Private-Method-in-interface" class="headerlink" title="接口私有方法 Private Method in interface"></a>接口私有方法 Private Method in interface</h2><p>com.interfaces.PrivateMethod</p>
+<h2 id="模块化-Module-System"><a href="#模块化-Module-System" class="headerlink" title="模块化 Module System"></a>模块化 Module System</h2><ul>
+<li>com.hello</li>
+<li>com.hello.client</li>
+</ul>
+<h2 id="Process-API"><a href="#Process-API" class="headerlink" title="Process API"></a>Process API</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">jshell&gt; ProcessHandle currentProcess = ProcessHandle.current();</span><br><span class="line">currentProcess ==&gt; <span class="number">3214</span></span><br><span class="line"></span><br><span class="line">jshell&gt; System.out.println(<span class="string">"Current Process Id: = "</span> + currentProcess.pid());</span><br><span class="line">Current Process Id: = <span class="number">3214</span></span><br></pre></td></tr></table></figure>
+<h2 id="资源对象的try-catch"><a href="#资源对象的try-catch" class="headerlink" title="资源对象的try/catch"></a>资源对象的try/catch</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">jshell&gt; <span class="function"><span class="keyword">void</span> <span class="title">tryResource</span><span class="params">()</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">   ...&gt;   BufferedReader reader1 = <span class="keyword">new</span> BufferedReader(<span class="keyword">new</span> FileReader(<span class="string">"/tmp/a.txt"</span>));</span><br><span class="line">   ...&gt;   <span class="keyword">try</span> (reader1) &#123;</span><br><span class="line">   ...&gt;     System.out.println(reader1.readLine());</span><br><span class="line">   ...&gt;   &#125;</span><br><span class="line">   ...&gt; &#125;</span><br><span class="line">|  已修改 方法 tryResource()</span><br></pre></td></tr></table></figure>
+<h2 id="Stream-api-improvements"><a href="#Stream-api-improvements" class="headerlink" title="Stream api improvements"></a>Stream api improvements</h2><p>com.stream.StreamTest</p>
+<h2 id="optional"><a href="#optional" class="headerlink" title="optional"></a>optional</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">jshell&gt; Optional.of(<span class="number">1</span>)</span><br><span class="line">$<span class="number">46</span> ==&gt; Optional[<span class="number">1</span>]</span><br><span class="line"></span><br><span class="line">jshell&gt; Optional.empty();</span><br><span class="line">$<span class="number">47</span> ==&gt; Optional.empty</span><br><span class="line"></span><br><span class="line">jshell&gt; Optional.of(<span class="number">1</span>).ifPresentOrElse(x -&gt; System.out.println(<span class="string">"get:"</span> + x), () -&gt; System.out.println(<span class="string">"cannot get"</span>))</span><br><span class="line">get:<span class="number">1</span></span><br><span class="line"></span><br><span class="line">jshell&gt; Optional.empty().ifPresentOrElse(x -&gt; System.out.println(<span class="string">"get:"</span> + x), () -&gt; System.out.println(<span class="string">"cannot get"</span>))</span><br><span class="line">cannot get</span><br><span class="line"></span><br><span class="line">jshell&gt; Optional.empty().or(() -&gt; Optional.of(<span class="number">2</span>))</span><br><span class="line">$<span class="number">50</span> ==&gt; Optional[<span class="number">2</span>]</span><br></pre></td></tr></table></figure>
+<h2 id="HTTP-2-Client-API"><a href="#HTTP-2-Client-API" class="headerlink" title="HTTP 2 Client API"></a>HTTP 2 Client API</h2><p>api改进<br>支持web socket 等</p>
+<h2 id="GC"><a href="#GC" class="headerlink" title="GC"></a>GC</h2><ul>
+<li>CMS垃圾回收算法不再推荐使用; 推荐性能更好的G1算法</li>
+<li>GC算法之间的绑定关系被取消</li>
+</ul>
+<h2 id="other"><a href="#other" class="headerlink" title="other"></a>other</h2><p>java docs改进</p>
+<h2 id="源代码"><a href="#源代码" class="headerlink" title="源代码"></a>源代码</h2><p>本文全部源代码：<a href="https://github.com/wangsaisai/java-9-tutorial.git" target="_blank" rel="noopener">https://github.com/wangsaisai/java-9-tutorial.git</a></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h2 id=&quot;JShell&quot;&gt;&lt;a href=&quot;#JShell&quot; class=&quot;headerlink&quot; title=&quot;JShell&quot;&gt;&lt;/a&gt;JShell&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;交互式执行java代码&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;figure class=&quot;highlight java&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre&gt;&lt;span class=&quot;line&quot;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;16&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&quot;code&quot;&gt;&lt;pre&gt;&lt;span class=&quot;line&quot;&gt;jshell&amp;gt; &lt;span class=&quot;keyword&quot;&gt;int&lt;/span&gt; a=&lt;span class=&quot;number&quot;&gt;10&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;a ==&amp;gt; &lt;span class=&quot;number&quot;&gt;10&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;jshell&amp;gt; a*&lt;span class=&quot;number&quot;&gt;7&lt;/span&gt;+&lt;span class=&quot;number&quot;&gt;5&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;$&lt;span class=&quot;number&quot;&gt;30&lt;/span&gt; ==&amp;gt; &lt;span class=&quot;number&quot;&gt;75&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;jshell&amp;gt; System.out.println(&lt;span class=&quot;string&quot;&gt;&quot;hello&quot;&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;hello&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;jshell&amp;gt; &lt;span class=&quot;function&quot;&gt;&lt;span class=&quot;keyword&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;title&quot;&gt;method&lt;/span&gt;&lt;span class=&quot;params&quot;&gt;(&lt;span class=&quot;keyword&quot;&gt;int&lt;/span&gt; x, &lt;span class=&quot;keyword&quot;&gt;int&lt;/span&gt; y)&lt;/span&gt; &lt;/span&gt;&amp;#123;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;   ...&amp;gt;   System.out.println(x+y);&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;   ...&amp;gt; &amp;#125;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;|  已修改 方法 method(&lt;span class=&quot;keyword&quot;&gt;int&lt;/span&gt;,&lt;span class=&quot;keyword&quot;&gt;int&lt;/span&gt;)&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;jshell&amp;gt; method(&lt;span class=&quot;number&quot;&gt;10&lt;/span&gt;,&lt;span class=&quot;number&quot;&gt;20&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;&lt;span class=&quot;number&quot;&gt;30&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+    
+    </summary>
+    
+    
+  </entry>
+  
+  <entry>
+    <title>智能时代</title>
+    <link href="https://wangsaisai.github.io/2017/07/15/Intelligent-Age/"/>
+    <id>https://wangsaisai.github.io/2017/07/15/Intelligent-Age/</id>
+    <published>2017-07-15T02:42:44.000Z</published>
+    <updated>2017-07-15T03:01:59.000Z</updated>
+    
+    <content type="html"><![CDATA[<p>大数据与智能革命重新定义未来</p>
+<h1 id="第一章-数据——人类建造文明的基石。"><a href="#第一章-数据——人类建造文明的基石。" class="headerlink" title="第一章 数据——人类建造文明的基石。"></a>第一章 数据——人类建造文明的基石。</h1><blockquote>
+<p>如果把资本和机械动能，作为大航海时代以来全球化的推动力，那么数据正成为下一次技术革命和社会革命的核心动力</p>
+</blockquote>
+<p>数据的最大作用在于承载信息，但并非所有的数据都承载有意义的信息。信息有时藏在事物的背后，需要挖掘和测量才能得到。数据是信息的载体，从数据中挖掘信息</p>
+<p>数据中隐藏的信息和知识是客观存在的，但是只有具有相关领域专业知识的人才才能将它们挖掘出来。对数据和信息进行处理后，人类就可以获得知识。知识比信息更高一个层次，也更加抽象，它具有系统性的特征。</p>
+<p><strong>得到数据和使用数据的能力是衡量文明发展水平的标准之一</strong></p>
+<h3 id="使用数据的标准流程"><a href="#使用数据的标准流程" class="headerlink" title="使用数据的标准流程:"></a>使用数据的标准流程:</h3><p>获取数据 –&gt; 分析数据 –&gt; 建立模型 –&gt; 预测未知</p>
+<p>数据的作用自古有之，但是过去数据的作用经常被忽视。首先，由于过去数据量不足，积累大量的数据所需的时间太长，以至于在较短的时间内，它的作用不明显。其实数据和想获得的信息之间的联系通常是间接的，他要通过不同数据之间的相关性才能体现出来。<strong>可以说相关性是让数据发挥作用的魔棒。</strong></p>
+<p>很多时候我们无法直接获得信息，但是我们可以将相关联信息进行量化，然后通过数学模型间接的得到所要的信息，而<strong>各种数学模型的基础都离不开概率论和统计学</strong></p>
+<blockquote>
+<p>切比雪夫不等式:当样本数足够多时一个随机变量和他的数学期望值之间的误差，可以任意小</p>
+</blockquote>
+<p>模型的选择不是一件容易的事，通常简单的模型未必与真实情况相匹配.</p>
+<blockquote>
+<p>日心说地心说如果一开始模型选的不好，以后修修补补就很困难，因此，在过去无论在理论上还是工程上，大家都把主要的精力放在寻找模型上</p>
+</blockquote>
+<p>有了模型之后，第二步就找到模型的参数，以便让模型至少和以前观察的数据相吻合，这一点在过去的被重视程度远远不如寻找模型。但是今天他又有一个比较时髦而高深的词——<strong>机器学习</strong>。</p>
+<p>鉴于完美模型未必存在，即使存在，找到他也非常不容易，而且费时间，因此就有人考虑能否通过很多简单不完美的模型凑在一起起到完美模型的效果呢？</p>
+<p>这个答案是肯定的，从理论上讲，只要找到足够多的具有代表性的样本，就可以利用数学找到一个模型或一组模型的组合，使得它和真实情况非常接近。</p>
+<p>数据驱动方法的最大优势在于它可以最大程度上得益于计算机技术的进步，尽管数据驱动方法一开始数据量不足，计算能力不够。随着时间推移，摩尔定律保证了计算能力和数据量，以一个指数级增长的速度递增。数据驱动方法可以变得非常正确。相比之下，很多其他方法的改进需要靠理论的突破，因此改进起来周期非常长。</p>
+<h3 id="本章小结"><a href="#本章小结" class="headerlink" title="本章小结"></a>本章小结</h3><p><strong>数据驱动方法是大数据的基础，智能革命的核心，它带来了一种新的思维方式。</strong></p>
+<a id="more"></a>
+<h1 id="第二章-大数据和机器智能"><a href="#第二章-大数据和机器智能" class="headerlink" title="第二章 大数据和机器智能"></a>第二章 大数据和机器智能</h1><blockquote>
+<p>在有大数据之前计算机并不擅长解决人类智能的问题，但是今天这个问题换个思路就可以解决了，其核心就是变智能问题为数据问题。由此，全世界开始了新一轮的技术革命-智能革命</p>
+</blockquote>
+<p>开普勒从他老师手上接过大量的天文数据，找到了精确描述行星围绕太阳运动轨迹的模型–椭圆模型</p>
+<p>传统的人工智能方法,简单地讲就是首先了解人类是如何产生智能的，然后让计算机按照人的思路去做。今天，几乎所有的科学家都不坚持，机器要像人一样思考，才能获得智能。<strong>但是很多门外汉，在谈到人工智能时，依然想象着机器在向人类那样思考，这让他们既兴奋又担心。</strong></p>
+<h3 id="鸟飞派"><a href="#鸟飞派" class="headerlink" title="鸟飞派"></a>鸟飞派</h3><p>在人类的发明历史上，很多领域早期的尝试都是模仿人或者动物的行为，比如人类在几千年之前就梦想着飞行，于是就模仿鸟将鸟羽毛做成翅膀，绑在人的胳膊上往下跳。事实上飞机的发明靠的是空气动力学，而不是仿生学。</p>
+<h3 id="互联网兴起之后，数据的获取变得非常容易。"><a href="#互联网兴起之后，数据的获取变得非常容易。" class="headerlink" title="互联网兴起之后，数据的获取变得非常容易。"></a>互联网兴起之后，数据的获取变得非常容易。</h3><p>从1994年到2004年的十年里语音识别的错误率减少了一半，而机器翻译的准确性提高了一倍。这其中20%的左右的贡献来自于方法的改进，80%才来自于数据量的提升。虽然每一年计算机在解决智能问题上的进度幅度并不大，但是十几年量的积累，最终促成了质变</p>
+<h3 id="大数据最明显的特征是体量大"><a href="#大数据最明显的特征是体量大" class="headerlink" title="大数据最明显的特征是体量大"></a>大数据最明显的特征是体量大</h3><p>一些数据，专家讲大数据的特征概括成<strong>三个v，既大量，多样性，及时性</strong>。这种方法虽然方便记忆，但并不全面精确。及时性，并非所有大数据必须的特征。多样性含义上有歧义，其中最重要的含义是<strong>多维度</strong></p>
+<p>传统方法问卷调查未必反映被调查人真实的想法，百度知道上的提问和回答没有压力，也没有功利目的，说出了真实的想法。</p>
+<h3 id="大数据第三个重要特征也是人们经常忽视的，就是它的全面性完备性"><a href="#大数据第三个重要特征也是人们经常忽视的，就是它的全面性完备性" class="headerlink" title="大数据第三个重要特征也是人们经常忽视的，就是它的全面性完备性"></a>大数据第三个重要特征也是人们经常忽视的，就是它的全面性完备性</h3><p>大数据是一种思维方式的改变大数据之前，计算机并不擅长解决智能问题。但是今天换思路就可以解决，其核心就是<strong>变智能问题为数据问题</strong>。由此，全世界开始了新一轮的技术革命–<strong>智能革命</strong>。</p>
+<h3 id="深蓝"><a href="#深蓝" class="headerlink" title="深蓝"></a>深蓝</h3><p>深蓝其实是大量的数据，并不复杂的算法和超强计算能力的结合，深蓝从来没有也不需要像人一样思考。</p>
+<p>虽然在评估自己和对方的胜率是可以根据历史的数据考虑对手可能采用的做法。对不同的状态给出可能性的评估，然后根据对方下一步走法对盘面的影响，核实这些可能性的估计，找到一个最有利于自己的状态。并走出这步棋。</p>
+<p>深蓝其实把一个机器智能的问题变成了一个大数据的问题和大量计算的问题。<strong>阿发狗在具体算法上和深蓝略有差异，但他们博弈的原理是相同的</strong>。</p>
+<p>我们对大数据重要性的认识不应该停留在统计改进产品和销售上或者决策支持上，而应该看到它导致了机器智能产生。<strong>机器一旦产生和人类相似的智能，就将对人类社会产生重大影响。决定今后20年经济发展的是大数据和由之而来的智能革命。</strong></p>
+<h3 id="第三章-思维的革命"><a href="#第三章-思维的革命" class="headerlink" title="第三章 思维的革命"></a>第三章 思维的革命</h3><blockquote>
+<p>在无法确定因果关系时，数据为我们提供了解决问题的新方法，数据中包含的信息可以帮助我们消除不确定性，而数据之间的<strong>相关性在某种程度上可以取代原来的因果关系</strong>，帮助我们得到我们想知道的答案，这便是大数据思维的核心</p>
+</blockquote>
+<p>欧洲之所以能够在科学上领先于世界其他地方，在很大程度上是依靠从古希腊建立起来的思辨的思想和逻辑推理的能力，依靠他们可以从实践中总结出最基本的公理，然后通过因果逻辑构建起整个科学的大厦。最有代表性的是欧几里得几何学。</p>
+<p>瓦特改进了蒸汽机，或者说把瓦特发明了一种万用蒸汽机。</p>
+<p>后人这样评价牛顿和瓦特这两位英国的杰出人物：</p>
+<blockquote>
+<p>牛顿找到了开启工业革命大门的钥匙，而瓦特特拿着这把钥匙开启了工业革命的大门。</p>
+</blockquote>
+<p>机械设备更广泛的影响力是作为一种准则指导人民的行为，其核心思想可以概括成确定性和因果关系。</p>
+<p>牛顿的物理学理论是建立在确定性基础上，既所谓的绝对时空。</p>
+<p>爱因斯坦的研究方式是对是的，他的理论也是建立在一种确定性-光速恒定的基础之上，利用逻辑推理就可以推导出整个狭义相对论。</p>
+<p>爱因斯坦自己说如果不是他也会有人在很短的时间内发现狭义相对论，因为<strong>狭义相对论就是光速恒定的必然结果</strong>。爱因斯坦的相对论在形式上和牛顿力学有相似之处，简单而美妙，几个公式就把整个理论描述清楚了。</p>
+<blockquote>
+<p>牛顿被苹果砸了一下的说法是伏尔泰杜撰出来的，并不靠谱。<br>爱因斯坦从白日梦中获得另类想法搞清楚了广义相对论却是一件真实的事情</p>
+</blockquote>
+<p>爱因斯坦在瑞士专利局无所事事，坐在窗前看见外面明媚的阳光，想着有人在窗外坐着椅子从天上加速而下的怪事，从此想清楚了重力和加速度的联系，发现了广义相对论。</p>
+<p>这个例子说明人类找到真正的因果关系是一件很难的事情，运气的成分很大，因此机械思维在认识世界时还是有很多的局限性</p>
+<p><strong>机械思维的局限性更多来源于他否认不确定性和不可知性</strong>。爱因斯坦有句名言–<strong>上帝不掷色子</strong>。这是他在和量子力学的发明人波尔等人争论时的讲话。</p>
+<h3 id="信息论"><a href="#信息论" class="headerlink" title="信息论"></a>信息论</h3><p>在概率的基础上香农博士建立起一套完整的理论，<strong>将世界的不确定性和信息联系起来，这就是信息论</strong>。信息论不仅是通信的理论，也给了人们一种看待世界和处理问题的新思路。</p>
+<p>香农著名的论文：《通信的数学原理》，提出<strong>信息熵</strong>的概念，解决了信息的度量问题。同时香农还把信息和世界的不确定性或者是无序状态联系到一起。</p>
+<p>信息论的作用远不止在科学和工程上，它也是一种全新的方法论<br>信息论建立在不确定性基础上，想要消除这种不确定性就要引入信息。<br>谁掌握了信息，谁就能获得财富，就如同在工业时代，谁掌握了资本就能获得财富。</p>
+<p><strong>用不确定相关这种眼光看待世界,在用信息消除不确定性。不仅能够赚钱，而且能够把很多智能问题转化为数据处理的问题，具体说就是利用信息来消除不确定性的问题。</strong></p>
+<p>任何基于概率统计的模型都会有很多小概率事件覆盖不到，这在过去被认为数据驱动方法的死穴，很多学科把这种现象称为黑天鹅效应。</p>
+<blockquote>
+<p>黑天鹅隐喻那些极为罕见，预期之外的事件他们在发现之前没有前例可以证明，但一旦发生，就会产生极端的影响</p>
+</blockquote>
+<p>大数据的完备性，可以解决这个问题。</p>
+<p>大数据的科学基础是信息论，本质是利用信息消除不确定性。大数据时代，量变带来质变，采用信息论的思维方式，可以让过去很多难题迎刃而解</p>
+<p>通过关联关系，可以反向查找因果关系。先有结果，再反推原因</p>
+<p>能通过因果关系找到答案，根据因果关系知道原因固然好，但对于复杂问题，其难度非常大，除了物质条件，人们的努力还要靠运气。<br>在大数据时代，我们能够得益于一种新的思维方法–<strong>从大量的数据中找到答案，即使不知道原因</strong>。如果我们愿意接受，那么我们的思维方式已经跳出了机械时代单纯追求因果关系的做法，开始具有大数据思维了。</p>
+<p>搜索引擎，如果相信用户点击的结果，其实就是用相关性取代因果关系，这里面有两个风险。<br>首先，用户点击容易形成马太效应排在前面的结果技术不相关，也容易获得更多点击。<br>其次，那种依靠点击搜索的结果容易被一些使用者操纵。比较稳妥的做法是对用户的点击数据建立一个简单的模型，作为搜索排序算法的一部分，这个模型通常称为点击模型。</p>
+<blockquote>
+<p>很多时候落后和先进的差距，不是购买一些机器或者引进一些技术就能够弥补的，落后最可怕的地方是思维方式的落后</p>
+</blockquote>
+<p>今天面临的复杂情况，已经不是机器时代用几个定律就能讲清楚的了，不确定性，或者说难以找到确定性，是今天社会的常态。<br>在无法确定因果关系时，数据为我们提供了解决问题的新方法，<strong>数据中所包含的信息可以帮助我们消除不确定性，而数据之间的相关性在某种程度上可以取代原来的因果关系，帮助我们得到我们想知道的答案，这边是大数据思维的核心。大数据思维和原有机械思维并非完全对立，他更多的是对后者的补充，在新的时代一定需要新的方法论，也一定会产生新的方法</strong></p>
+<h3 id="第四章-大数据与商业"><a href="#第四章-大数据与商业" class="headerlink" title="第四章 大数据与商业"></a>第四章 大数据与商业</h3><blockquote>
+<p>在未来我们可以看到，大数据和机器智能的工具就如同水和电这样的资源，由专门的公司提供给全社会使用</p>
+</blockquote>
+<p>一项技术带动整个社会变革的事情也曾经发生过。它们通常遵循一个模式：</p>
+<blockquote>
+<p>新技术+原有产业=新产业</p>
+</blockquote>
+<p><strong>安迪-比尔定律</strong>: 比尔（比尔盖茨）要拿走安迪（安迪格罗夫，intel ceo）所给的。计算机领域软件功能的增加和改进要不断的吃掉硬件性能的提升。</p>
+<p>以微软为代表的软件开发商吃掉硬件性能，迫使用户更新机器，让惠普戴尔等公司受益，而这些批厂商再向英特尔订购芯片，在这个过程中，各家的利润先后得到提升。硬件公司在将利润投入研发，按照摩尔定律的速度提升硬件性能，为微软下一步更新软件吃掉硬件性能做准备。</p>
+<p>每次技术革命都会诞生新的思维方式和商业模式，企业只有在思维上跟上新的时代，才能在未来的商业中立于不败之地</p>
+<h1 id="第五章-大数据和智能革命的技术挑战"><a href="#第五章-大数据和智能革命的技术挑战" class="headerlink" title="第五章 大数据和智能革命的技术挑战"></a>第五章 大数据和智能革命的技术挑战</h1><blockquote>
+<p>大数据的数据量大,维度多，数据完备的特点使得他从收集开始到存储处理再到应用，都与过去的数据方法有很大的不同。因此，使用好大数据也需要在技术和工程上采用与过去不同的方法。</p>
+</blockquote>
+<p><strong>科学技术的发展并非是匀速的，重大的科技突破常常需要酝酿很长时间</strong>。在这段时间内技术进步是一个缓慢的量的积累。有人称为相对停顿的状态。当积累的量达到一定程度之后，<strong>科技在短期内获得单点突破。然后新科技全面迸发，这便是拐点</strong>。我们今天可能正处在机器智能就要超过人类的拐点。</p>
+<p>计算机处理器的速度符合摩尔定律，单一处理器性能的提升，依然无法应对增长更快的数据量。不仅因为数据量太大，单机处理不了，而是因为<strong>数据量提高一万倍时，计算量通常不是线性增加的，大部分情况下它会增长几十万倍，乃至上亿倍</strong></p>
+<p>大数据具有多维度的特点，有时并行化是非常困难</p>
+<p><strong>大数据时代收集数据没有预先设定目标</strong>，而是收集数据之后经过分析能够得到什么结论就是什么结论，正是由于收集是没有前提和假设，大数据分析才能给我们带来很多意想不到的惊喜，这才让大家觉得计算机变得更聪明</p>
+<p>苹果微软谷歌等公司为了挖掘每一个家庭的消费潜力，想尽办法千方百计掌握每一个家庭客厅的数据。有的通过游戏机或者机顶盒的设备不经意之间收集用户数据</p>
+<p>收集数据时非常忌讳“大胆假设，小心求证”的思维方式。<strong>如果事先有了定论，再找数据来证实它，总能找到有力的证据</strong>，但很可能与真实情况相差巨大</p>
+<p>数据量增长的速度高过存储设备的发展速度，越往后他们之间差距越大。</p>
+<p>大数据面临的另一个技术难题就是如何标准化数据格式，以便共享。</p>
+<p>大数据在今天这个时间点爆发，是各种技术条件具备的结果。要让大数据真正发挥巨大作用，还有很多技术挑战需要应对。</p>
+<h1 id="第六章-未来智能化产业"><a href="#第六章-未来智能化产业" class="headerlink" title="第六章 未来智能化产业"></a>第六章 未来智能化产业</h1><blockquote>
+<p>未来的农业制造业体育医疗律师甚至编辑记者都将迎来崭新形态，新产业将取代旧产业，满足人的个性化需求，大数据将导致我们整个社会的升级和变迁。</p>
+</blockquote>
+<p>大数据将导致我们社会的产业升级和变迁，不过，如果对比每一次产业革命前后产业的变化就会发现<strong>人类的基本需求并没有变</strong>。只是采用了新技术后新产业会取代旧产业，满足人的需求。<strong>在技术革命时，固守旧产业是没有出路的。</strong></p>
+<p><strong>机器智能带来一个终极问题，事情都交给机器来做，而且比人做得更好，那人类怎么办？</strong></p>
+<h1 id="第七章-智能革命和未来社会"><a href="#第七章-智能革命和未来社会" class="headerlink" title="第七章 智能革命和未来社会"></a>第七章 智能革命和未来社会</h1><blockquote>
+<p>在历次技术革命中，一个人一个国家，可以选择的道路只有两条，要么加入浪潮成为前2%的人，要么观望徘徊被淘汰</p>
+</blockquote>
+<p>“<strong>这是最好的时代，也是最坏的时代</strong>“–英国文豪狄更斯的名著双城记开篇的一句话</p>
+<p>工业革命对社会的影响分成三个阶段：</p>
+<ul>
+<li>第一阶段只有发明家和工厂主受益。</li>
+<li>第二阶段是全体英国民众受益。</li>
+<li>第三阶段才使整个世界受益。</li>
+</ul>
+<p>第二次工业革命，上述的模式重复出现。</p>
+<p>每一次重大的技术革命，都需要很长的时间来消除它的负面影响。因为技术革命会使得很多产业消失，或者产业从业人口大量减少，释放出来老动力需要寻找出路。<strong>这个时间至少要一代人以上，被淘汰的产业的从业人员能够进入新行业中的其实非常少</strong>。各国政府试图帮助从业人员掌握新技能，但收效甚微。因为上一代人很难适应下一代技术发展。<strong>事实上消化这些劳动力主要靠的是等待他们逐渐退出劳务市场</strong>，而并非他们真正有了新的出路，能够像以前一样称心如意的工作。这就是<strong>技术革命，都需要花半个世纪的消除它带来的动荡的原因</strong>。有些国家将无所事事的人强制塞到公司里，比如日本和欧盟。有些国家不可以淘汰过剩产能，比如中国。但解决问题的途径都是一个“耗字”，耗上两代，社会问题就解决了。</p>
+<p>大数据和机器智能的趋势一旦形成，就不是人力可以阻挡的。有识之士，包括霍金盖茨，担心机器智能将对人类社会造成方方面面的冲击，呼吁有节制的发展机器智能，但智能革命的速度不会因此而放慢。从目前的发展来看，<strong>智能革命对社会的冲击，甚至有可能超过过去几次技术革命</strong>。</p>
+<p>我们可以从三个角度分析其中的原因。</p>
+<ul>
+<li>首先，信息革命本身带来的影响还没有消化完。</li>
+<li>其次，今天的世界和200年前不同，消化技术革命的影响要比工业革命时难的多。由于全球化，全世界已经没有空白的市场可以开拓了。</li>
+<li>最后，也是最重要的一点，智能革命要替代的是人类最值得自豪的部分–大脑。</li>
+</ul>
+<p>2010年，美国爆发了所谓的占领华尔街运动，一大群无业游民，低收入者聚集到纽约街头，占领华尔街运动引起美国社会的反思。这些低收入者出路在哪里，通过福利和救济将它们养起来，显然是不够的，因为那些人的人生前景依然是灰暗的，特朗普替这些人说出了希望-体面的工作。<strong>这些不满情绪的根源在哪里不能简单地归结为贫富悬殊或者宗教纷争。其根源在于，很多人对社会进步所抛弃了</strong>。随着技术革命的发展，并非每一个人的发展机会都是越来越多的，反而可能会越来越少。是否有良好的解决办法呢？坦率地讲，谁也没有。我们要在观念上接受一个事实，<strong>越来越多的事情，人类将做不过机器。我们今后的决定，应该根据这个前提来做</strong>，只有面对现实，才能最终建设一个让所有积极向上的人都具有成就感和幸福感的社会。</p>
+<p>虽然我们不知道如何在长期内创造出消化几十亿劳动力的产业，但是我们很清楚如何让自己在智能革命中受益，而不是被抛弃。这个答案很简单，就是<strong>争当2%的人，而不是自豪地宣称自己是98%的人。</strong>在历次技术革命中，一个人一家企业甚至一个国家可以选择的道路只有两条，要么进入前2%的行列，要么被淘汰。<strong>当下怎么才能成为这2%，就是踏上智能革命的浪潮</strong>。</p>
+<p><strong>未来依然是人的时代</strong>，我们不会被机器控制，机器在完成任务时甚至不知道自己在做什么。谷歌的alphago，其实并不知道自己是在下棋。但是制造智能机器的人就不同了，他们可能只占人口的不到2%，甚至更少，却在某种程度上控制着世界</p>
+<p>看是免费的，东西才是最贵的，因为我们获得服务的同时交出了自己的自由，而只有我们失去自由利益受到损失时才会体会到自由的可贵。</p>
+<p>控制着我们的不到2%的人口并没有做坏事，到目前为止，他们对我们的帮助你带来的危害要大得多。</p>
+<p><strong>怎样加入2%的行列，并不是每个人都要去人工智能公司工作，而是希望大家接受一个新的思维方式，利用好大数据和机器智能</strong>。前几次重大技术革命首先受益的是和那些产业相关的人，善于利用新技术的人。虽然并非每一个人都能够去开发大数据和机器智能产品，但是应用这些技术要不是像想象中的那么难。</p>
+<p>在每一个重大的技术革命开始的时候，真正勇敢地投身到技术革命打仗长驻那里毕竟是少数，受益者更少，大部分人则会犹豫和观望。在智能革命到来之际，每一个人也有两个选择，要么加入这次浪潮，要么观望徘徊，最后被淘汰。<strong>大多数人的观望徘徊，给了2%的人机会，使得愿意吃螃蟹的人在奋斗路上少了很多竞争对手。</strong>马斯克和盖茨一方面对机器智能的发展非常担心，另一方面却选择加入到机器智能的大讨论。</p>
+<p>大数据导致机器革命的到来，对未来社会的影响是全方面的，尽管总体上这些影响是正面的。从长远看，我们未来的社会会变得更好，不过和以往的技术革命一样，智能革命也会带来很多负面的影响，特别是在它发展的初期，这些影响可能会持续很久。</p>
+<p>任何一次技术革命，最初的受益的都是发展到使用它的人要远离他，拒绝接受它的人在很长的时间里都是迷茫的一代。作为人和企业，无疑应该拥抱它，成为2%的受益者。作为国家需要未雨绸缪，争取不要像过去那样每一次重大的技术革命都伴随半个世纪的动荡。</p>
+<p>我们还没有经历过机器在智能上全面超越人类的时代，我们需要在这样的环境里学会生存。<strong>这将是一个令我们振奋的时代，也是一个给我们带来空前挑战的时代。</strong></p>
+<h1 id="其他"><a href="#其他" class="headerlink" title="其他"></a>其他</h1><h3 id="学术休假"><a href="#学术休假" class="headerlink" title="学术休假"></a>学术休假</h3><p>在美国的大学里教授每7到10年左右的时间可以带全薪休假半年或者带半薪休假一年。大部分教师会选择到一个合作单位做一些科研，以拓宽自己的视野，另一些教授则选择找一个地方去写书。</p>
+<h3 id="无罪推定原则"><a href="#无罪推定原则" class="headerlink" title="无罪推定原则"></a>无罪推定原则</h3><p>被告的一方在法庭上先被假定为无罪，除非有足够的证据证明其有罪</p>
+<h3 id="大陆法系-VS-英美法系"><a href="#大陆法系-VS-英美法系" class="headerlink" title="大陆法系 VS 英美法系"></a>大陆法系 VS 英美法系</h3><p>实行大陆法系的国家，包括除了英美（及英联邦，加拿大等）之外的几乎所有国家。在这些国家立法永远是远远滞后于案件发生。</p>
+<p>英美法系，又称普通法系，海洋法系。</p>
+<p>英美法系在司法审判原则上更「遵循先例」，即作为判例的先例对其后的案件具有法律约束力，成为日后法官审判的基本原则。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><ul>
+<li>大数据是解决不确定问题的良药</li>
+<li>现有产业 + 新技术 = 新产业</li>
+<li>智能革命带来前所未有的不连续性挑战</li>
+</ul>
+<p>智能革命的发生来自大数据量的积累达到质变的奇点。</p>
+<p>几千年来，人类的认识都建立在归纳法之上，归纳法隐含的假设是“未来继续和过去一样”。即连续性假设。</p>
+<p>机器获得智能的方式与人类不同，不是靠逻辑推理，而是靠大数据和智能算法。</p>
+<p>google开发alphago，不是证明计算机下棋比人强，而是要开发一种机器学习的工具。alphago获胜，宣告了机器智能时代的到来。</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;大数据与智能革命重新定义未来&lt;/p&gt;
+&lt;h1 id=&quot;第一章-数据——人类建造文明的基石。&quot;&gt;&lt;a href=&quot;#第一章-数据——人类建造文明的基石。&quot; class=&quot;headerlink&quot; title=&quot;第一章 数据——人类建造文明的基石。&quot;&gt;&lt;/a&gt;第一章 数据——人类建造文明的基石。&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;如果把资本和机械动能，作为大航海时代以来全球化的推动力，那么数据正成为下一次技术革命和社会革命的核心动力&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;数据的最大作用在于承载信息，但并非所有的数据都承载有意义的信息。信息有时藏在事物的背后，需要挖掘和测量才能得到。数据是信息的载体，从数据中挖掘信息&lt;/p&gt;
+&lt;p&gt;数据中隐藏的信息和知识是客观存在的，但是只有具有相关领域专业知识的人才才能将它们挖掘出来。对数据和信息进行处理后，人类就可以获得知识。知识比信息更高一个层次，也更加抽象，它具有系统性的特征。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;得到数据和使用数据的能力是衡量文明发展水平的标准之一&lt;/strong&gt;&lt;/p&gt;
+&lt;h3 id=&quot;使用数据的标准流程&quot;&gt;&lt;a href=&quot;#使用数据的标准流程&quot; class=&quot;headerlink&quot; title=&quot;使用数据的标准流程:&quot;&gt;&lt;/a&gt;使用数据的标准流程:&lt;/h3&gt;&lt;p&gt;获取数据 –&amp;gt; 分析数据 –&amp;gt; 建立模型 –&amp;gt; 预测未知&lt;/p&gt;
+&lt;p&gt;数据的作用自古有之，但是过去数据的作用经常被忽视。首先，由于过去数据量不足，积累大量的数据所需的时间太长，以至于在较短的时间内，它的作用不明显。其实数据和想获得的信息之间的联系通常是间接的，他要通过不同数据之间的相关性才能体现出来。&lt;strong&gt;可以说相关性是让数据发挥作用的魔棒。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;很多时候我们无法直接获得信息，但是我们可以将相关联信息进行量化，然后通过数学模型间接的得到所要的信息，而&lt;strong&gt;各种数学模型的基础都离不开概率论和统计学&lt;/strong&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;切比雪夫不等式:当样本数足够多时一个随机变量和他的数学期望值之间的误差，可以任意小&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;模型的选择不是一件容易的事，通常简单的模型未必与真实情况相匹配.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;日心说地心说如果一开始模型选的不好，以后修修补补就很困难，因此，在过去无论在理论上还是工程上，大家都把主要的精力放在寻找模型上&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;有了模型之后，第二步就找到模型的参数，以便让模型至少和以前观察的数据相吻合，这一点在过去的被重视程度远远不如寻找模型。但是今天他又有一个比较时髦而高深的词——&lt;strong&gt;机器学习&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;鉴于完美模型未必存在，即使存在，找到他也非常不容易，而且费时间，因此就有人考虑能否通过很多简单不完美的模型凑在一起起到完美模型的效果呢？&lt;/p&gt;
+&lt;p&gt;这个答案是肯定的，从理论上讲，只要找到足够多的具有代表性的样本，就可以利用数学找到一个模型或一组模型的组合，使得它和真实情况非常接近。&lt;/p&gt;
+&lt;p&gt;数据驱动方法的最大优势在于它可以最大程度上得益于计算机技术的进步，尽管数据驱动方法一开始数据量不足，计算能力不够。随着时间推移，摩尔定律保证了计算能力和数据量，以一个指数级增长的速度递增。数据驱动方法可以变得非常正确。相比之下，很多其他方法的改进需要靠理论的突破，因此改进起来周期非常长。&lt;/p&gt;
+&lt;h3 id=&quot;本章小结&quot;&gt;&lt;a href=&quot;#本章小结&quot; class=&quot;headerlink&quot; title=&quot;本章小结&quot;&gt;&lt;/a&gt;本章小结&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;数据驱动方法是大数据的基础，智能革命的核心，它带来了一种新的思维方式。&lt;/strong&gt;&lt;/p&gt;
+    
+    </summary>
+    
+    
+  </entry>
+  
+  <entry>
+    <title>未来简史 - 读书笔记</title>
+    <link href="https://wangsaisai.github.io/2017/06/11/future/"/>
+    <id>https://wangsaisai.github.io/2017/06/11/future/</id>
+    <published>2017-06-11T12:33:05.000Z</published>
+    <updated>2017-06-11T12:33:05.000Z</updated>
+    
+    <content type="html"><![CDATA[
+<img src="/images/future-2.png" title="future">
+
+<a id="more"></a>
+
+
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.9.0">
+<title>未来简史</title>
+<meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="renderer" content="webkit">
+<meta name="author" content="mubu.com">
+</head>
+<body style="margin: 50px 20px;color: #333;font-family: 'Helvetica Neue','Hiragino Sans GB','WenQuanYi Micro Hei','Microsoft Yahei',sans-serif;">
+<div class="export-wrapper"><div style="font-size: 24px; padding: 20px 15px 0;"><div style="padding-bottom: 10px">未来简史</div><div style="background: #e5e6e8; height: 1px; margin-bottom: 20px;"></div></div><ul style="list-style: disc outside;"><li class="collapsed" style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人类的新议题</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">战胜死亡</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">永生的出现将导致人和人之间根本性的不平等</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">永久幸福</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">生物化学重新打造智人，提供无止境的快感</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人成为神</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">路径</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">生物工程：人类在现有的有机身体结构下充分挖掘潜能</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">半机械人工程：结合各种非有机设备，保留有机大脑作为核心</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">非有机生物工程：智能软件替代神经网络，无机生命替代有机生命</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">如果心灵从碳基变成硅基，心灵结构改变，智人消失，人类历史告一段落</span></li></ul></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">澄清</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">一、以上说的是“人类整体”，而非大多数的人</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">二、这是一项历史预测，而不是政治目标</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">三、追求不一定能得到</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">四、预测并不是为了预言，预测经过讨论能改变世界</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">马克思主义没有推翻统治，仅仅这个预测就能让他们做出改变</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">历史的意义：历史知识会改变我们未来的行为，研究历史是为了从旧的意义中解放</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">知识的悖论：知识（预测）如果不改变行为就无用，行为一旦改变，原本的只是（预测）立即失去意义</span></li></ul></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">成神路上，没有刹车</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">专家各有所长，无人了解整个系统，没有人知道刹车在哪里</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">现代经济只能无止境增长，刹车就会崩溃，只能追求永续目标：不死、快乐、神性。（三者不可分）</span></li></ul></li></ul></li></ul></li><li class="collapsed" style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">智人征服世界</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人类如何对待其他动物（世界）</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">事实</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人类灭绝和征服其他大型动物，主宰了世界</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人和其他动物一样，都是一套以繁衍为目的的生物算法，情感和欲望都是帮我们快速找到路径</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">理念</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">狩猎采集者</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">狩猎采集者并不觉得比其他生物高级，人能否存在，有赖于理解和尊重周围动物的欲望</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">狩猎采集者倾向于泛灵论，人与万物沟通</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">农民</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">农民的生活质量有赖于他们能控制的动物</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">农民把动物从有感情、值得尊重的生命降格成人类的资产</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人以自身的需求规训动物，无视动物的情感需求</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">大多数农业社会把不同等级的人也视为资产</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">有神论承诺智人占主导地位，可以剥削其他一切生物。比如基督教</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">有神论，神负责在人类和生态系统之间做调解。诸神负责保护农业，换来人类的供献，牺牲了生态系统</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">现代人</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">有神论以神之名作为传统农业的理由，人文主义则是以人之名作为现代工业化农业的借口</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人文主义奠基于智人拥有某些独特而神圣的人性，而动物并没有-自然也就不重要</span></li></ul></li></ul></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人类的特质</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人有灵魂</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">如果灵魂是进化出来的,则它是不可分割的、永恒的实体就和进化的本质相违背</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">如果灵魂是突然出现在人类身上出现的，无法想象他之前或他的父母没有一丝一毫灵魂</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人有心灵</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">如果一切都在我们的神经元网络中，何必把心灵独立出来？</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">如果心灵高于神经网络，那它究竟在哪里？</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人有意义之网</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">动物只能想象实际存在的东西</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">而人可以想象主体间的东西他们具有真实而强大的力量，如国家、公司、法律等</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人通过虚构故事组织大规模协作，这是人类的力量被放大、主宰世界的根本原因</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">想要破解人类的未来，必须破解出种种赋予世界意义的虚构想象</span></li></ul></li></ul></li></ul></li><li class="collapsed" style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人类为世界赋予意义。</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">虚构的力量。</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">动物都活在客观实体和主观体验两重现实中，智人的世界有第三重现实，各种关于金钱、神、国家和公司的故事</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">7万年前，认知革命让人类开始谈论只存在于人类想象之中的事情。这能促成几百、几千人的合作。</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">5000年前，人类发明了文字和金钱</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">文字能让人以算法的方式组织社会，每个人完成一个小步骤，最后的重要决定由整个算法来判断，这正是官僚体系的本质。</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">国家发行一张纸，全部公民用这张纸纳税，公民别无选择，但市场得以发展</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">故事本应该只是工具，不应该是目标</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">我们应该区分真实和虚伪，真实的地位当然高于虚伪，欧元可以贬值但他没有痛苦</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">未来还会有更强大的虚构概念、更极权的组织，区分真实和虚构就尤为重要</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">虚构的故事让人类更容易合作，但代价是故事也会决定我们合作的目标</span></li></ul></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">科学与宗教之争</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">宗教</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">宗教不等于迷信，自己相信的一定是“真理”；只有别人相信的，才会是“迷信”</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">宗教不是超自然，对于相信恶魔、神灵、精灵的人来说，这就是自然</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">宗教也不是是否信“神”的问题。</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">宗教不等同于灵性</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">宗教是要巩固世俗秩序，灵性是要逃离</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">灵性之旅只适合个人，不适合社会。人类要协作，不能只有问题没有规范</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">宗教是一套无所不包的故事，能够为人类的法律、规范和价值观赋予高于人类的合法性</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">宗教的定义应该在于社会功能，而非是否有神</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">基督教、共产主义、自由主义都可以视为一种宗教</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">共产主义的历史规律，其实就像基督上帝的诫命</span></li></ul></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">科学与宗教</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">科学想要打造可行的人类制度，必然需要宗教的协助。科学研究事实，但并不给出伦理判断</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">宗教界并非只管伦理判断，它总是包含事实说明</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">典型的宗教故事的三个部分</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">1. 伦理判断，例如“人命神圣”</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">2. 事实声明，例如“人类是从受孕那一刻开始的”</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">3. 伦理判断和事实声明的结合，得到具体指示，像是“就算受孕才刚一天，你也不能堕胎”</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">对于宗教的伦理判断，科学无法反驳，但事实声明的部分，科学可以反驳</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">科学和宗教比想象的更容易妥协、合作</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">宗教最在乎的是秩序</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">科学最在乎的是力量</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">现代历史其实是科学与特定宗教（人文主义）达成协议的过程，现代社会相信人文主义，而科学不是为了质疑，而是为了实现他的教条。</span></li></ul></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">与“现代”的契约</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">前现代人相信自己活在某种伟大的宇宙计划里，这限制的人类的力量，但也让一切有了意义</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">“现代”就是一份契约，本质就是：人放弃意义、换取力量</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">离开了意义，现代社会之所以还在发展，是因为兴起了一种革命性的新宗教：人文主义</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人文主义革命。</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">与现代的契约是得到力量，放弃意义。但有一个漏洞条款，如果人类从整体宇宙之外找到意义，就可意义和力量兼得。人找到人文主义</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人文主义的教条</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人文主义政治：选民能做出最好的选择</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人文主义经济：顾客永远是对的</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人文主义美学：看的人觉得美，就是美</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人文主义伦理：感觉对了，就做吧</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人文主义教育：为自己想</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人文主义分裂</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">古典正统教派：自由主义</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">每个人都是独特的人，拥有永不重复的体验</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">分支一：社会人文主义。社会主义责怪自由主义太过注重自己的感受而忽略他人的体验</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">分支二：进化人文主义。各种体验和感受的冲突不可避免，最适者胜出</span></li></ul></li></ul></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">智人失去控制权</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">实验室里的定时炸弹</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">自由意志</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">自由主义的基础是人有自由意志，这是事实声明</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">事实声明科学就可以介入</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">每个电化学反应都是前一项事件决定的。那最后达成的决定肯定也不是自由意志</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">如果是原子随机移动造成的决定，当然这就是随机，也不是自由意志</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">根据进化论，动物的所有所谓“选择”，都是基因密码的反应。</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">个人主义</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">自由主义认为每个人都有单一、不可分割的自我</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">裂脑人实验：自我是物理可分的</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">冰水实验：人有两种自我：体验自我和叙事自我</span></li></ul></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">大分离</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">对于坚持人不可替代的想法，科学的回应</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">1. 生物是算法，每种动物（包括智人）都是进化而成的算法集合</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">2. 算法的作用不是组成物质的影响。算盘的算珠是铁制或木制对运算没有差别</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">3. 只要运算确实，硅基或碳基没有差别</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">超人来掌控世界，人类失去平等</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">算法掌控世界，人类失去神圣性</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人类整体仍然有价值，但个人将不再具有权威，大部分选择由外部算法来管理</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人类完全不具备价值</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">算法成为像国家、公司那样的实体，掌控人类</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">无用的人做什么呢，只能靠药物和打游戏过活</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人类很有可能会被圈养或者消灭。因为系统比人聪明，你便无法掌控他的动机</span></li></ul></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">无论是算法还是超人类的掌握世界，自由主义都将崩溃</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">新的宗教之科技人文主义</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">仍然认为人类是造物的巅峰之作，智人升级成智神，对抗最复杂的无意识算法</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">就像人类只能看到光谱中的一小段一样，心理的频谱比我们体验的要宽得多，成为智神可以去探索心智的新大陆</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">科技人文主义面临无解的两难，它认为人的意志是宇宙中最重要的东西，因此推动人类开发控制，但一旦能控制意志，人类便失去神圣性，无法在科技面前立足</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">新的宗教之数据主义</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">数据主义认为，宇宙是由数据组成的，任何现象或者实体的价值就在于对数据处理的贡献</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">经济系统</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">经济的机制就是收集关于欲望和能力的的数据，再转化为决策</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">资本主义赢得冷战，并不是因为它更合伦理或是上帝对苏联降下怒火，而是因为这个阶段分散式的数据处理方式比集中式更优</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">政治系统</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">民主和专制本质上也就是两套关于收集和分析信息的对立机制</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">如果无法有效处理数据，选举、政党、国会这些过去崇高的制度就可能被淘汰</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">专制政权也无力应对数据流的速度和数量</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">全人类是一个数据系统，个人是芯片</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">它提高效率，有四种方式</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">1. 增加处理器数量。10万人口的城市，能力高于1000人口的村庄</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">2. 增加处理器种类。农民、祭司和医师对话所产生的想法，是狩猎采集者之怎么都谈不到的</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">3. 增加处理器之间的连接。10个有贸易的城市，产出高于10个孤立的城市</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">4. 增加现有连接的流通自由度。就像要免去诸如高速收费一样</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">人类经过了四个发展阶段</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">1. 认知革命，大量智人能连接为单一数据处理网络</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">2. 农业革命，人口规模大规模增加，人类合作网络增加。处理器数量、类型和连接都有增加</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">3. 从发明文字和金钱到科学革命肇始，各类连接变得非常密切</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">4. 最后一个阶段，从地理大发现到现在，信息在全球网络中自由流动，且数量和速度越来越快。现在民主和市场之所以胜出，并不是因为它们“好”，而是因为他们改善了全球数据处理系统</span></li></ul></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">对于数据主义，信息自由是最高的善</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">数据主义的第一条诫命：要连接越来越多的媒介，产生越来越多的信息</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">数据主义的第二条诫命：把一切连接到系统，连不想加入的异端也不例外</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">数据主义将人类体验视同数据模式，也就破坏了人的权威和意义来源</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">数据主义认为，体验不分享就没有价值，人并不需要（甚至不可能）从自己心里找到意义。我们要做的就是等待算法找出意义</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">只要有更好的算法和数据，人类这种生物算法就会自然被淘汰</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">万物互联网自己就有了神圣的意义</span></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">数据主义对人类的威胁，就如同人类对其他动物的威胁。数据不在乎我们的主观需求</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">最重要的3个事项和对应的问题</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">1. 科学正聚合于一个无所不包的教条，也就是认为所有生物都是算法，而生命则是进行数据处理</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">问题1：生物真的只是算法，而生命真的只是数据处理吗？</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">2. 智能正与意识脱钩</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">问题2：智能和意识究竟哪一项更有价值？</span></li></ul></li><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">3. 无意识但具备高智商的算法，可能很快比我们更加了解自己</span><ul class="children" style="list-style: disc outside; padding-bottom: 4px;"><li style="line-height: 22px;"><span class="content mubu-node" style="line-height: 22px; min-height: 22px; font-size: 14px; display: inline-block; vertical-align: top;">问题3：等到无意识但具备高智能的算法比我们更了解我们，社会、政治和日常生活将会有什么变化？</span></li></ul></li></ul></li></ul></li></ul></li></ul></div>
+</body>
+</html>
+
+
+
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;img src=&quot;/images/future-2.png&quot; title=&quot;future&quot;&gt;
+    
+    </summary>
+    
+    
+  </entry>
+  
+  <entry>
+    <title>人类简史 - 读书笔记</title>
+    <link href="https://wangsaisai.github.io/2017/05/17/humankind-history/"/>
+    <id>https://wangsaisai.github.io/2017/05/17/humankind-history/</id>
+    <published>2017-05-17T01:40:21.000Z</published>
+    <updated>2017-05-17T01:40:21.000Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="/images/human.jpg" alt="图片1" title="human"></p>
+<a id="more"></a>
+<h2 id="时间"><a href="#时间" class="headerlink" title="时间"></a>时间</h2><ul>
+<li><p>宇宙大爆炸，产生物质，能量，时间，空间，形成物理学</p>
+</li>
+<li><p>原子结合成分子，行为化学</p>
+</li>
+<li><p>分子结合，有机物产生，形成生物学</p>
+</li>
+<li><p>类人生物出现</p>
+</li>
+<li><p>不同人种：鲁道夫人，直立人，尼安特人，智人。 最终只有智人存活下来</p>
+</li>
+<li><p>智人创造复杂的结构，形成“文化”，文化发展，形成历史学</p>
+</li>
+<li><p>历史的路途上有三种革命：7万年前的认知革命，1万年前的农业革命，约500年前的科学革命</p>
+</li>
+</ul>
+<h2 id="智人"><a href="#智人" class="headerlink" title="智人"></a>智人</h2><h3 id="时间-1"><a href="#时间-1" class="headerlink" title="时间"></a>时间</h3><ul>
+<li>100万年前</li>
+</ul>
+<h3 id="特点"><a href="#特点" class="headerlink" title="特点"></a>特点</h3><ul>
+<li><p>大脑庞大</p>
+<p>占体积，消耗大</p>
+<p>肌肉萎缩</p>
+<p>花更多时间寻找食物</p>
+</li>
+<li><p>直立行走</p>
+<p>进化更短时间周期，促使人类都是早产儿</p>
+<p>突出社交技巧</p>
+<p>可塑性强</p>
+</li>
+<li><p>使用工具</p>
+<p>a.食物链中间</p>
+<ul>
+<li><p>靠采集为生</p>
+</li>
+<li><p>早期石器：大型动物用餐后的猎物尸体，敲开骨头，吃骨髓</p>
+<p>b.食物链顶端</p>
+<ul>
+<li><p>合作追捕大型动物</p>
+</li>
+<li><p>登上食物链顶端，整个生态系统猝不及防。大型动物灭绝</p>
+</li>
+</ul>
+<p>c.顶端进化</p>
+<ul>
+<li>发明船，灯，弓箭，宗教，商业和社会分层</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="认知革命"><a href="#认知革命" class="headerlink" title="认知革命"></a>认知革命</h2><h3 id="原因"><a href="#原因" class="headerlink" title="原因"></a>原因</h3><ul>
+<li>固然的基因突变</li>
+</ul>
+<h3 id="特点：独特功能"><a href="#特点：独特功能" class="headerlink" title="特点：独特功能"></a>特点：独特功能</h3><ul>
+<li><p>河边有狮子</p>
+<p> 能传达更多更大量关于智人身边环境的信息，规划并执行复杂计划：躲开狮子，猎捕野牛</p>
+</li>
+<li><p>八卦</p>
+<p> 能传达更多更大量关于智人社会关系的信息，组织团体可达150人</p>
+</li>
+<li><p>虚构故事</p>
+<p> 能传达关于虚构概念的信息：守护神，国家，有限公司，人权</p>
+</li>
+</ul>
+<h3 id="主要成就"><a href="#主要成就" class="headerlink" title="主要成就"></a>主要成就</h3><ul>
+<li>形成不同的语言和文化</li>
+</ul>
+<h2 id="农业革命"><a href="#农业革命" class="headerlink" title="农业革命"></a>农业革命</h2><h3 id="采集社会"><a href="#采集社会" class="headerlink" title="采集社会"></a>采集社会</h3><ul>
+<li><p>贪吃基因形成</p>
+<p>远古采集者，遇到高热量甜食，最有选择是尽可能多吃</p>
+<p>今天物质盈余，仍无法戒掉此问题，导致肥胖</p>
+</li>
+</ul>
+<h3 id="一夫一妻制"><a href="#一夫一妻制" class="headerlink" title="一夫一妻制"></a>一夫一妻制</h3><ul>
+<li><p>演化心理学家认为：远古没有一夫一妻制，无父亲概念，一群人共同抚养部落小孩</p>
+</li>
+<li><p>“远古公社“支持者认为一夫一妻制是工业社会后的人际疏离、离婚率高的原因</p>
+</li>
+</ul>
+<h3 id="生活"><a href="#生活" class="headerlink" title="生活"></a>生活</h3><ul>
+<li><p>工作时间短</p>
+<p> 2-3天打猎一次，一次3-6个小时</p>
+</li>
+<li><p>寿命长</p>
+<p>多数活到60-80岁</p>
+</li>
+<li><p>杂食习性</p>
+<p>无营养不良</p>
+</li>
+</ul>
+<h3 id="战争自采集社会便出现的社会现象。人类关系密切同时仍会杀害老弱"><a href="#战争自采集社会便出现的社会现象。人类关系密切同时仍会杀害老弱" class="headerlink" title="战争自采集社会便出现的社会现象。人类关系密切同时仍会杀害老弱"></a>战争自采集社会便出现的社会现象。人类关系密切同时仍会杀害老弱</h3><h2 id="农业社会"><a href="#农业社会" class="headerlink" title="农业社会"></a>农业社会</h2><h3 id="动物驯化"><a href="#动物驯化" class="headerlink" title="动物驯化"></a>动物驯化</h3><p>  山羊，马，骆驼</p>
+<h3 id="植物驯化"><a href="#植物驯化" class="headerlink" title="植物驯化"></a>植物驯化</h3><p>  小麦，葡萄，橄榄树，玉米，马铃薯</p>
+<h3 id="影响"><a href="#影响" class="headerlink" title="影响"></a>影响</h3><p>  事务增加，人类生存危机减弱，人类激增，养尊处优的精英分子产生</p>
+<h3 id="意义"><a href="#意义" class="headerlink" title="意义"></a>意义</h3><p>  家和领地概念产生</p>
+<p>  未来的重要性凸显</p>
+<p>  学会看天吃饭，预测未来影响智人生存</p>
+<h3 id="文字"><a href="#文字" class="headerlink" title="文字"></a>文字</h3><ul>
+<li><p>原因</p>
+<p>大脑容量有限</p>
+<p>人难免一死</p>
+<p>人类大脑逐渐只习惯存储和处理特定类型信息，多数字的精确存储能力减弱</p>
+</li>
+<li><p>定义</p>
+<p>文字是用实体符号来存储信息的方式</p>
+</li>
+<li><p>种类</p>
+<p>苏美尔文字</p>
+<p>安第斯山脉</p>
+<p>古埃及象形文字</p>
+<p>中国及中美洲：中国公元前1200年，中美洲公元前1000-500年之间：产生完整表意文字</p>
+</li>
+</ul>
+<h3 id="后农业时代"><a href="#后农业时代" class="headerlink" title="后农业时代"></a>后农业时代</h3><p>  人类靠着文字和共同虚构故事迅猛发展，由此产生了不同的社会群体分类：自由人/奴隶，穷人/富人，白人/黑人</p>
+<h2 id="人类的融合统一"><a href="#人类的融合统一" class="headerlink" title="人类的融合统一"></a>人类的融合统一</h2><h3 id="历史的方向"><a href="#历史的方向" class="headerlink" title="历史的方向"></a>历史的方向</h3><ul>
+<li><p>合久必分只是一时，分久必合是大势</p>
+<p>公元前10000年前，地球上数千个文明，采集者只认识自己的岛</p>
+<p>公元前2000年前，人类文明只剩几百个，最多两三千个</p>
+<p>当今世界：</p>
+<ul>
+<li>相同的政治体系，经济制度，法律制度，科学体系</li>
+</ul>
+</li>
+<li><p>货币</p>
+<p>智人和陌生人合作的基础</p>
+<p>采集者无金钱概念</p>
+<ul>
+<li>自给自足，无法获取稀有物品时，才会与人交换</li>
+</ul>
+</li>
+</ul>
+<h3 id="城市和王国兴起后"><a href="#城市和王国兴起后" class="headerlink" title="城市和王国兴起后"></a>城市和王国兴起后</h3><ul>
+<li><p>交通改善，开始了专业化契机</p>
+</li>
+<li><p>人口稠密城市开始能够养活专业工作者</p>
+<ul>
+<li>鞋匠，医生，木匠，律师</li>
+</ul>
+</li>
+<li><p>不同专家制作的货品交易方式</p>
+<ul>
+<li><p>金钱运作基于信任</p>
+</li>
+<li><p>人类世界是存在于共同想象中虚构出来的</p>
+</li>
+<li><p>金钱制度原则</p>
+<ul>
+<li><p>万物可换</p>
+</li>
+<li><p>万众相信</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="帝国"><a href="#帝国" class="headerlink" title="帝国"></a>帝国</h3><ul>
+<li><p>条件</p>
+<p>帝国必须统治着不同民族，有不同文化和独立领土</p>
+</li>
+<li><p>特征</p>
+<p>疆域可灵活调整，几乎可以无限扩张</p>
+</li>
+<li><p>批判</p>
+<p>帝国制度自身缺陷，难以长期统治不同民族</p>
+<p>就算可统治，做法必然不道德。充满邪恶和剥削</p>
+</li>
+</ul>
+<h3 id="宗教"><a href="#宗教" class="headerlink" title="宗教"></a>宗教</h3><ul>
+<li><p>法则</p>
+<p>信奉超人类秩序普世皆同，不论时空，永恒为真</p>
+<p>必须坚定的将这种信念传播给大众</p>
+</li>
+<li><p>发展历程</p>
+<p>采集者：泛神论</p>
+<ul>
+<li>人和动物是平等的，尊重每一个动物</li>
+</ul>
+<p>农业革命后，宗教革命也随之产生</p>
+<p>农业革命最初宗教意义：动植物与人类不再平等，而变成人类的所有物</p>
+<p>神的产生</p>
+<ul>
+<li>神可以善待人类，和动植物沟通协商</li>
+</ul>
+</li>
+</ul>
+<h2 id="科学革命"><a href="#科学革命" class="headerlink" title="科学革命"></a>科学革命</h2><h3 id="发现自己的无知"><a href="#发现自己的无知" class="headerlink" title="发现自己的无知"></a>发现自己的无知</h3><ul>
+<li><p>现代科学体系与先前知识体系区别</p>
+<ul>
+<li><p>此前知识体系都基于无所不知</p>
+</li>
+<li><p>现代科学承认自己无知</p>
+</li>
+<li><p>以观察和数学为中心</p>
+</li>
+<li><p>运用已有能力发展出新的科技</p>
+</li>
+</ul>
+</li>
+<li><p>知识的价值判断标准在于实用性，以能否让人类创造新物质、得到力量或权利为考量</p>
+</li>
+<li><p>民族主义是唯一一个让死亡仍然占据可信的现代意识形态</p>
+</li>
+</ul>
+<h3 id="科学与帝国联姻"><a href="#科学与帝国联姻" class="headerlink" title="科学与帝国联姻"></a>科学与帝国联姻</h3><ul>
+<li><p>共同心态和出发点:承认自己无知</p>
+</li>
+<li><p>欧洲帝国远征改变了世界进程：民族文化由独立发展向逐渐融合为单一的人类社会转变</p>
+</li>
+<li><p>科学与帝国关系</p>
+<ul>
+<li><p>科学家为帝国提供实用知识，思想基础和科技工具</p>
+</li>
+<li><p>帝国为科学家提供物质资助、信息和保护，并确保研究成果的广泛传播</p>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="资本主义教条"><a href="#资本主义教条" class="headerlink" title="资本主义教条"></a>资本主义教条</h3><ul>
+<li><p>信用作用：资本主义利用人类信用，实现小资本运作成大资本的规则</p>
+</li>
+<li><p>兴起条件</p>
+<p>信任是金钱交易的后盾</p>
+</li>
+<li><p>作用</p>
+<p>推动现代科学兴起，影响了欧洲帝国主义的出现</p>
+</li>
+<li><p>政府与资本市场关系</p>
+<p>减少干预，是市场自由发挥</p>
+</li>
+</ul>
+<h3 id="工业的巨轮"><a href="#工业的巨轮" class="headerlink" title="工业的巨轮"></a>工业的巨轮</h3><ul>
+<li><p>能源和原料是否有限？</p>
+<ul>
+<li><p>阶段有限：能源快要耗尽时，总能找到替代方案</p>
+</li>
+<li><p>阶段改变，能源随之改变</p>
+</li>
+<li><p>乐观看，能源是取之不尽的</p>
+</li>
+<li><p>人类能用的能量总量其实在不断增加</p>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="一场永远的革命"><a href="#一场永远的革命" class="headerlink" title="一场永远的革命"></a>一场永远的革命</h3><ul>
+<li><p>工业革命后，动物们面临生存危机，智人成为全球霸主</p>
+</li>
+<li><p>智人隔绝了大自然，创造一套标准来生活</p>
+</li>
+<li><p>国家和市场正在取代过去家庭和社群的方式</p>
+</li>
+<li><p>核力量成为新世界的唯一制衡标准和手段</p>
+</li>
+</ul>
+<h3 id="幸福快乐的日子"><a href="#幸福快乐的日子" class="headerlink" title="幸福快乐的日子"></a>幸福快乐的日子</h3><ul>
+<li><p>金钱并非万能，金钱带来的快乐有限</p>
+</li>
+<li><p>快乐标准</p>
+<p>财富，健康，所处社群等客观条件与主观预期的吻合程度</p>
+</li>
+<li><p>生物学解释</p>
+<p>产生足够多血清素，多巴胺，催产素</p>
+</li>
+</ul>
+<h3 id="预计未来：智人末日"><a href="#预计未来：智人末日" class="headerlink" title="预计未来：智人末日"></a>预计未来：智人末日</h3><ul>
+<li><p>智人的未来变成非智人的存在</p>
+<p>智人通过接入机械和其他生物创造来维持生命</p>
+</li>
+<li><p>危机意识</p>
+<p>智能机器人产生独立意识，奋起反抗人类主人</p>
+</li>
+<li><p>两种可能</p>
+<p>智人进化或被彻底抹杀，历史的发展仍未可知</p>
+</li>
+</ul>
+<p><img src="/images/human.jpg" alt="图片1" title="human"></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;/images/human.jpg&quot; alt=&quot;图片1&quot; title=&quot;human&quot;&gt;&lt;/p&gt;
+    
+    </summary>
+    
+    
+  </entry>
+  
+  <entry>
+    <title>JVM 简介</title>
+    <link href="https://wangsaisai.github.io/2017/05/04/jvm/"/>
+    <id>https://wangsaisai.github.io/2017/05/04/jvm/</id>
+    <published>2017-05-04T13:28:01.000Z</published>
+    <updated>2017-05-04T13:28:01.000Z</updated>
+    
+    <content type="html"><![CDATA[<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>为了达到给所有硬件提供一致的虚拟机平台的目的，jvm牺牲了一些与硬件相关的性能特性。</p>
+<h1 id="第一章-走进java"><a href="#第一章-走进java" class="headerlink" title="第一章 走进java"></a>第一章 走进java</h1><blockquote>
+<p>2006年，Sun公式宣布最终会将java开源，并建立了OpenJDK组织源码进行独立管理。<br>除了极少数产权代码（Sun本身也无权进行开源处理）外，OpenJDK几乎包括了Sun JDK的全部代码。<br>所以OpenJDK 7 与 Sun JDK 1.7本质史昂就是同一套代码库开发的产品</p>
+</blockquote>
+<h3 id="历史"><a href="#历史" class="headerlink" title="历史"></a>历史</h3><ol>
+<li><p>1996年，sun发布jdk1.0，该jdk中所带的虚拟机就是Classic VM. 这款虚拟机采用纯解释权方式来执行java代码，若用jit编译器，就必须外挂。使用外挂jit编译器后，解释器便不再工作。<br>若用解释器，解释器的性能本来就比较慢。<br>若用编译器，编译器需要对每一行代码都进行编译，由于程序相应时间的压力，不敢应用编译耗时较高的优化技术。<br>由此，“java语言很慢”的形象产生</p>
+</li>
+<li><p>jdk 1.2时，在Solaris平台发布了Exact VM.<br>使用了准确式内存管理（虚拟机可以知道内存中某个位置的数据具体是什么类型）。<br>之前Class VM基于handler（句柄）的对象查找方式，每次定位对象多了一次查找开销</p>
+</li>
+<li><p>HotSpot VM：准确式内存管理，热点代码探测技术<br>Sun JDK，Open JDK都是使用HotSpot VM</p>
+</li>
+<li><p>Dalvik VM，即android上使用的jvm。<br>严格来说，Dalvik VM不是一个java虚拟机；<br>它没有遵循java虚拟机规范，不能直接执行java的class文件;<br>使用的是寄存器架构而不是jvm中常用的栈架构</p>
+</li>
+<li><p>Microsoft JVM<br>微软曾是java技术铁杆支持者，与sun争夺java控制权，令java从跨平台技术变为绑定在windows上的技术是ms的主要目的。<br>sun起诉微软，微软最终败诉，赔偿sun公司2000万，承诺终止其jvm发展。<br>有趣的是，xp sp3完全抹去了jvm，sun又登报希望微软不要这么做</p>
+</li>
+</ol>
+<h3 id="未来"><a href="#未来" class="headerlink" title="未来"></a>未来</h3><ul>
+<li>模块化</li>
+<li>混合语言（java平台上多语言很合编程正成为主流）</li>
+<li>多核并行（函数式）</li>
+<li>进一步丰富语法</li>
+<li>64位虚拟机</li>
+</ul>
+<a id="more"></a>
+<p>由于指针膨胀和各种数据类型对齐补白的原因，运行在64位系统上的java应用，通常比32位系统额外增加10% - 30%的内存消耗；<br>多个机构测试显示，64为虚拟机运行速度在各个测试项中几乎全面落后32位虚拟机，两者大约15%左右的性能差距。<br>32位有个严重的限制：内存不超过4GB；<br>因此，很多企业使用虚拟机集群等方式继续在32位系统中运行。</p>
+<p>计算机最终会完全过渡到64位，jvm也会从32位发展至64位</p>
+<h3 id="其他"><a href="#其他" class="headerlink" title="其他"></a>其他</h3><p>函数式编程的一个重要优点：程序天然地适合并行运行</p>
+<h1 id="第二章-java内存区域与内存溢出异常"><a href="#第二章-java内存区域与内存溢出异常" class="headerlink" title="第二章 java内存区域与内存溢出异常"></a>第二章 java内存区域与内存溢出异常</h1><h2 id="运行时数据区"><a href="#运行时数据区" class="headerlink" title="运行时数据区"></a>运行时数据区</h2><ul>
+<li>方法区</li>
+<li>堆</li>
+<li>虚拟机栈</li>
+<li>本地方法栈</li>
+<li>程序计数器PC</li>
+</ul>
+<p>方法区，堆 ：线程共享<br>栈，pc ： 线程私有<br>本地方法栈中方式使用的语言，使用方式，数据结构并未强制规定，jvm可以自由实现它。（Sun HotSpot 直接把本地方法栈和虚拟机栈合二为一）</p>
+<h3 id="程序计数器"><a href="#程序计数器" class="headerlink" title="程序计数器"></a>程序计数器</h3><p>每个线程都有一个独立了的PC，<br>若正在执行java方法，则PC记录的是正在执行的虚拟机字节码指令地址；<br>若正在执行native方法，则PC值为空。<br>此内存区域是唯一一个在jvm中不可能发生OutOfMemoryError的区域</p>
+<h3 id="java虚拟机栈"><a href="#java虚拟机栈" class="headerlink" title="java虚拟机栈"></a>java虚拟机栈</h3><p>栈中包括了局部变量表<br>局部变量表存放了编译器可知的各种基本数据类型，对象引用，returnAddress类型</p>
+<h3 id="本地方法栈"><a href="#本地方法栈" class="headerlink" title="本地方法栈"></a>本地方法栈</h3><p>native 方法</p>
+<h3 id="java堆"><a href="#java堆" class="headerlink" title="java堆"></a>java堆</h3><p>jvm所管理内存中最大的一块.</p>
+<p>堆的唯一目的: 存放对象实例，几乎所有的对象实例都在这里分配内存（jvm规范说，所有的对象实例以及数组都要在堆上分配，但随着jit的发展，栈上分配，标量替换等优化技术，打破了这个限制）</p>
+<p>从内存分配角度看，线程共享的java堆中可能划分出多个线程私有的分配缓冲区（Thread Local Allocation Buffer, TLAB）</p>
+<p>从内存回收角度，java堆还可以细分</p>
+<ul>
+<li>新生代（eden， from， to）</li>
+<li>老年代</li>
+</ul>
+<p>不论如何划分，都与存放内容无关\<br>无论哪个区域，存储的都仍然是对象实例</p>
+<p>java堆可以位于物理上不连续的内存空间，只要逻辑上连续即可</p>
+<h3 id="方法区"><a href="#方法区" class="headerlink" title="方法区"></a>方法区</h3><p>存储虚拟机加载的类信息，常量，静态变量，jit编译后的代码等数据</p>
+<p>习惯上，称作“永久代”，但并不等价。<br>HotSpot把gc分代扩展至方法区，或者说使用永久代来实现方法区。<br>对其它JVM，并不存在永久代的概念</p>
+<p>如何实现方法区，不收虚拟机规范约束，用永久代来实现，不是个好主意，永久代很容易内存溢出</p>
+<p>方法区主要是针对常量池的回收和对类型的卸载。该区域回收性能较差，尤其是对类型的卸载，条件相当苛刻</p>
+<h3 id="运行时常量池"><a href="#运行时常量池" class="headerlink" title="运行时常量池"></a>运行时常量池</h3><p>方法区的一部分。</p>
+<p>class文件中，包含了常量池信息，用于存放编译器生成的各种字面量和符号引用，这部分内容在类加载后进入方法区的运行时常量池中存放。</p>
+<p>常量池中的内容：编译器产生，也可能运行期产生</p>
+<h3 id="直接内存"><a href="#直接内存" class="headerlink" title="直接内存"></a>直接内存</h3><p>并不是虚拟机的一部分，收到本机总内存（RAM+swap）空间的限制。</p>
+<h3 id="其他-1"><a href="#其他-1" class="headerlink" title="其他"></a>其他</h3><p>StackOverflowError</p>
+<ul>
+<li>线程请求的栈深度大于虚拟机所允许的深度</li>
+</ul>
+<p>OutOfMemoryError</p>
+<ul>
+<li>虚拟机栈扩展时，无法申请到足够的内存</li>
+<li>对中没有内存完成实例分配，并且堆也无法再扩展</li>
+<li>方法区无法满足内存分配需求</li>
+</ul>
+<h2 id="hotspot虚拟机对象"><a href="#hotspot虚拟机对象" class="headerlink" title="hotspot虚拟机对象"></a>hotspot虚拟机对象</h2><h3 id="对象创建"><a href="#对象创建" class="headerlink" title="对象创建"></a>对象创建</h3><p>虚拟机遇到new指令时，检查该指令的参数能否在常量池中定位到一个类的符号引用，并检查这个符号引用的类是否已被加载，解析和初始化过。若没有，则先执行相应的类加载过程。</p>
+<p>类加载检查通过后，将为新生对象分配内存。</p>
+<p>对象所需内存大小在类加载完成后便可完全确定。</p>
+<p>若java堆中内存是规整的，使用“指针碰撞”方式为对象分配内存空间；若不是，使用“空闲列表的”内存分配方式。<br>堆是否规整，由其采用的垃圾回收算法决定。</p>
+<h5 id="多线程问题"><a href="#多线程问题" class="headerlink" title="多线程问题"></a>多线程问题</h5><p>给A分配内存，指针未来得及修改，对象B又同时使用了原来的指针来分配内存。解决这个问题有两种方案：</p>
+<ul>
+<li>分配内存空间的动作进行同步处理。（虚拟机使用CAS配上失败重试的方式保证更新操作的原子性）</li>
+<li>把内存分配的动作按照线程划分在不同的空间之中进行。即内个线程在java堆中预先分配一小块内存（本地线程分配缓冲TLAB）。</li>
+<li>通过-XX+/-UseTLAB来设定是否使用TLAB</li>
+</ul>
+<p>内存分配完成后，虚拟机需要将分配到的内存空间都初始化为零值（不包括对象头）。<br>这一步操作保证了java代码中可以不赋初始值就可直接使用。</p>
+<p>接下来，虚拟机要对对象进行必要的设置，（对象是哪个类的实例，如何找到类的元数据信息，对象哈希码，对象的GC分代年龄等信息），这些信息存储在对象头之中。</p>
+<p>从虚拟机角度来讲，此时对象就产生了。从java程序视角看，对象创建才刚刚开始<init>方法还没有执行。<br>执行new指令后，会执行init方法，按照程序员的意愿初始化对象。此时，创建对象完成。</init></p>
+<h3 id="对象内存布局"><a href="#对象内存布局" class="headerlink" title="对象内存布局"></a>对象内存布局</h3><ul>
+<li>对象头</li>
+<li>实例数据</li>
+<li>对齐填充</li>
+</ul>
+<p>对象头：</p>
+<ul>
+<li>对象运行时数据：哈希码，gc分代年龄，锁状态标志，线程持有的锁，偏向线程id，，偏向时间戳等。<br>32bit或64bit，官方称作“Mark Word”</li>
+<li>类型指针，指向类元数据的指针。虚拟机通过此指针确定对象是哪个类的实例。</li>
+</ul>
+<p>实例数据：</p>
+<ul>
+<li>对象真正存储的有效信息</li>
+<li>从父类继承的，子类定义的。都会记录下来。</li>
+<li>存储顺序受到虚拟机分配策略参数和字段在java源码中定义顺序的影响</li>
+<li>hotspot默认分配策略：longs/doubles、ints、shorts、chars、bytes、booleans、oops（ordinary object pointers），相同宽带的字段总是分配到一起。在满足此前提的情况下，父类中的变量会出现在子类之前。</li>
+<li>若CompactFields参数设为true，默认为true，则子类中较窄的变量也可能会插入到父类变量的空隙之中。</li>
+</ul>
+<p>对齐填充</p>
+<ul>
+<li>仅起到占位符的作用。hotspot要求对象qi’shi起始地址必须是8字节的整数倍。即对象大小必须是8的整数倍。</li>
+</ul>
+<h3 id="对象的访问定位"><a href="#对象的访问定位" class="headerlink" title="对象的访问定位"></a>对象的访问定位</h3><ul>
+<li>句柄</li>
+<li>直接指针（hotspot使用的方式）</li>
+</ul>
+<p>句柄：</p>
+<ul>
+<li>java堆中需要划分一块内存来作为句柄池。</li>
+<li>对象指针reference中存储的是对象句柄地址</li>
+<li>句柄中包含对象实例数据与类型数据两个地址</li>
+<li>对象移动时，只改变句柄中的实例数据指针，reference本身不需要修改</li>
+</ul>
+<p>直接指针：</p>
+<ul>
+<li>reference存储的是对象的真实地址</li>
+<li>java堆对象中需要考虑放置类型数据的相关信息</li>
+<li>速度更快，节省了一次指针定位开销。由于对象访问非常频繁，这类开销也不小</li>
+</ul>
+<h2 id="其他-2"><a href="#其他-2" class="headerlink" title="其他"></a>其他</h2><p>EMA：eclipse memory analyzer：分析dump出的堆转储快照</p>
+<p>String.intern()<br>jdk1.6及以前，该方法会将首次遇到的字符串复制到永久代中，返回的也是永久代中这个字符串实例的引用。<br>jdk1.7以后，不会再复制实例，只是在常量池中记录首次出现的实例引用</p>
+<h1 id="第三章-垃圾收集器与内存分配策略"><a href="#第三章-垃圾收集器与内存分配策略" class="headerlink" title="第三章 垃圾收集器与内存分配策略"></a>第三章 垃圾收集器与内存分配策略</h1><p>程序计数器，虚拟机栈，本地方法栈：随线程生，随线程灭。<br>这些区域不需要过多考虑回收问题。</p>
+<p>垃圾收集器主要关注的是堆和方法区。</p>
+<h3 id="对象存活检测算法"><a href="#对象存活检测算法" class="headerlink" title="对象存活检测算法"></a>对象存活检测算法</h3><ul>
+<li>引用计数 ：无法解决循环引用问题</li>
+<li>可达性分析算法：以gc roots的对象作为起始点，向下搜索。</li>
+</ul>
+<p>GC roots：</p>
+<ul>
+<li>虚拟机栈</li>
+<li>方法区中静态属性引用的对象</li>
+<li>方法区中常量引用的对象</li>
+<li>本地方法栈中JNI引用的对象</li>
+</ul>
+<p>引用分类：</p>
+<ul>
+<li>强引用，默认。引用存在时，不会回收</li>
+<li>软引用。描述还有用但是非必需的对象。内存溢出之前，进行回收</li>
+<li>弱引用。使用WeakReference类来实现。生命周期在xia下一次垃圾收集之前。</li>
+<li>虚引用。使用PhantonReference类来实现。</li>
+</ul>
+<p>不可达的对象，也并非“非死不可”。在finalize（）方法中，可以把this参数赋值给某个变量，就保存下了引用。</p>
+<h3 id="回收方法区"><a href="#回收方法区" class="headerlink" title="回收方法区"></a>回收方法区</h3><p>主要回收废弃常量和无用的类。</p>
+<p>回收类，条件相当苛刻：</p>
+<ul>
+<li>不存在类的实例</li>
+<li>类的classloader已回收</li>
+<li>class对象没有被引用，没有通过反射访问该类的方法</li>
+</ul>
+<p>即使满足以上条件，进说明类对象“可以回收”，但也不一定会回收</p>
+<h3 id="GC算法"><a href="#GC算法" class="headerlink" title="GC算法"></a>GC算法</h3><ul>
+<li>标记-清除算法：标记和清除的效率都不高；产生内存碎片</li>
+<li>复制算法：实现简单，运行高效。需要额外内存空间进行担保，内存利用率低，浪费50%空间</li>
+<li>标记-整理算法：先标记，后整理，较少内存碎片问题</li>
+<li>分代收集算法</li>
+</ul>
+<h3 id="HotSpot的算法实现"><a href="#HotSpot的算法实现" class="headerlink" title="HotSpot的算法实现"></a>HotSpot的算法实现</h3><p>枚举根节点</p>
+<ul>
+<li>使用可达性分析方法，时间消耗很大，并且会产生gc停顿。</li>
+<li>可达性分析需要确保一致性，分析过程中不可以出现引用关系变化的情况，因此gc时会暂停所有java执行线程，即stop the world.</li>
+<li>java虚拟机基本都采用准确是gc，虚拟机有办法直接得知哪些地方存放着对象引用。</li>
+<li>hotspot的实现中，使用OopMap的数据结构记录引用信息。可以快速完成gc roots的枚举</li>
+</ul>
+<p>安全点</p>
+<ul>
+<li>hotspot并没有为每条指令都生成OopMap（过于占用空间），只在特定位置记录了这些信息，这些位置称为“安全点”</li>
+<li>程序在运行时，只有到达安全点是才能停顿下来，执行gc</li>
+</ul>
+<p>安全区域</p>
+<ul>
+<li>sleep状态的线程，无法到达安全点。无法gc，需要安全区域来解决</li>
+<li>安全区域位于一段代码之中，引用关系不会发生变化，在此区域任何地方开始gc都是安全的</li>
+</ul>
+<h3 id="垃圾收集器"><a href="#垃圾收集器" class="headerlink" title="垃圾收集器"></a>垃圾收集器</h3><ul>
+<li>Serial收集器。单线程收集，gc是暂停其他所有线程。效率高。client模式下虚拟机的默认新生代收集器。client模式，内存一般100M左右，不会太大，延迟不到100ms，基本可接受。</li>
+<li>ParNew收集器。Serial的多线程版本。使用多个线程执行gc。stop the world。其他与Serial类似。运行在server模式下首选的新生代收集器，主要是因为只有它能与VMS收集器配合工作。单cpu时，比serial要差，适合多cpu环镜</li>
+<li>Parallel Scavenge。关注点在吞吐量，而不是减小stop world时间。吞吐量=运行用户线程时间/(用户线程+gc线程)</li>
+<li>Serial Old 收集器。Serial收集器的老年代版本。单线程，标记-整理算法。client模式下使用</li>
+<li>Parallel Old收集器。parallel老年代版本，标记-整理算法。</li>
+<li>CMS收集器。以获取最短回收停顿时间为目标。标记-清除算法。</li>
+<li>G1收集器。gc技术最前沿成果。面向服务器。hotspot希望未来它可替换CMS。</li>
+</ul>
+<h3 id="CMS"><a href="#CMS" class="headerlink" title="CMS"></a>CMS</h3><p>工作步骤：</p>
+<ol>
+<li>初始标记。stop world，但会很快</li>
+<li>并发标记。stop world,很快</li>
+<li>重新标记</li>
+<li>并发清除</li>
+</ol>
+<p>优点：并发手机，低停顿<br>缺点：对cpu资源敏感，（少于4核时，性能慢）。内存碎片（标记-清除算法）。无法处理浮动垃圾。</p>
+<h3 id="其他-3"><a href="#其他-3" class="headerlink" title="其他"></a>其他</h3><p>并发和并行<br>gc并行：多个gc线程并行工作，用户线程等待<br>gc并发：用户线程，gc线程同时执行（不一定并行，可能交替执行）</p>
+<p>新生代GC（Minor GC）：频繁，快速<br>老年代GC（Major GC/Full GC）：比Minor GC慢10倍左右 </p>
+<h2 id="内存分配与回收策略"><a href="#内存分配与回收策略" class="headerlink" title="内存分配与回收策略"></a>内存分配与回收策略</h2><ul>
+<li>对象优先在eden分配。eden无足够空间，触发一次Minor GC</li>
+<li>大对象直接进入老年代</li>
+<li>长期存活对象进入老年代</li>
+<li>动态对象年龄判定。虚拟机不强制必须达到年龄才能晋升老年代，survivor中相同年龄所有对象大小的综合大于survivor空间一半时，也可直接进入老年代</li>
+<li>空间分配担保</li>
+</ul>
+<h1 id="第四章-虚拟机性能监控工具与故障处理工具"><a href="#第四章-虚拟机性能监控工具与故障处理工具" class="headerlink" title="第四章 虚拟机性能监控工具与故障处理工具"></a>第四章 虚拟机性能监控工具与故障处理工具</h1><h2 id="jdk命令行工具"><a href="#jdk命令行工具" class="headerlink" title="jdk命令行工具"></a>jdk命令行工具</h2><p>大多数是jdk/lib/tools.jar类库的一层包装，主要功能在tools类库中实现。因此命令行工具的可执行文件大小都在27kb左右。</p>
+<ul>
+<li>jps：查看本机所有java虚拟机进程</li>
+<li>jstat：收集虚拟机各方面的运行数据</li>
+<li>jinfo：显示虚拟机配置信息</li>
+<li>jmap：生成虚拟机内存转储快照</li>
+<li>jhat：分析jmap生成的dump文件，会启一个webserver，分析内存</li>
+<li>jstack：虚拟机线程快照</li>
+<li>javap：反汇编</li>
+</ul>
+<p>jps -v : 输出虚拟机启动时的jvm参数<br>jstat -gc：监视java堆状况<br>jstat -gcutil：监视java堆，输出是占用百分比</p>
+<h2 id="jdk可视化工具"><a href="#jdk可视化工具" class="headerlink" title="jdk可视化工具"></a>jdk可视化工具</h2><ul>
+<li>jconsole</li>
+<li>VisualVM：功能强大。运行监视和故障处理。</li>
+</ul>
+<h2 id="jdk版本选择"><a href="#jdk版本选择" class="headerlink" title="jdk版本选择"></a>jdk版本选择</h2><p>版本升级也有不少性能倒退的案例，受程序，第三方包兼容性以及中间件的限制，在企业中升级jdk版本需要慎重考虑。</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;为了达到给所有硬件提供一致的虚拟机平台的目的，jvm牺牲了一些与硬件相关的性能特性。&lt;/p&gt;
+&lt;h1 id=&quot;第一章-走进java&quot;&gt;&lt;a href=&quot;#第一章-走进java&quot; class=&quot;headerlink&quot; title=&quot;第一章 走进java&quot;&gt;&lt;/a&gt;第一章 走进java&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;2006年，Sun公式宣布最终会将java开源，并建立了OpenJDK组织源码进行独立管理。&lt;br&gt;除了极少数产权代码（Sun本身也无权进行开源处理）外，OpenJDK几乎包括了Sun JDK的全部代码。&lt;br&gt;所以OpenJDK 7 与 Sun JDK 1.7本质史昂就是同一套代码库开发的产品&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&quot;历史&quot;&gt;&lt;a href=&quot;#历史&quot; class=&quot;headerlink&quot; title=&quot;历史&quot;&gt;&lt;/a&gt;历史&lt;/h3&gt;&lt;ol&gt;
+&lt;li&gt;&lt;p&gt;1996年，sun发布jdk1.0，该jdk中所带的虚拟机就是Classic VM. 这款虚拟机采用纯解释权方式来执行java代码，若用jit编译器，就必须外挂。使用外挂jit编译器后，解释器便不再工作。&lt;br&gt;若用解释器，解释器的性能本来就比较慢。&lt;br&gt;若用编译器，编译器需要对每一行代码都进行编译，由于程序相应时间的压力，不敢应用编译耗时较高的优化技术。&lt;br&gt;由此，“java语言很慢”的形象产生&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;jdk 1.2时，在Solaris平台发布了Exact VM.&lt;br&gt;使用了准确式内存管理（虚拟机可以知道内存中某个位置的数据具体是什么类型）。&lt;br&gt;之前Class VM基于handler（句柄）的对象查找方式，每次定位对象多了一次查找开销&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;HotSpot VM：准确式内存管理，热点代码探测技术&lt;br&gt;Sun JDK，Open JDK都是使用HotSpot VM&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;Dalvik VM，即android上使用的jvm。&lt;br&gt;严格来说，Dalvik VM不是一个java虚拟机；&lt;br&gt;它没有遵循java虚拟机规范，不能直接执行java的class文件;&lt;br&gt;使用的是寄存器架构而不是jvm中常用的栈架构&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;Microsoft JVM&lt;br&gt;微软曾是java技术铁杆支持者，与sun争夺java控制权，令java从跨平台技术变为绑定在windows上的技术是ms的主要目的。&lt;br&gt;sun起诉微软，微软最终败诉，赔偿sun公司2000万，承诺终止其jvm发展。&lt;br&gt;有趣的是，xp sp3完全抹去了jvm，sun又登报希望微软不要这么做&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&quot;未来&quot;&gt;&lt;a href=&quot;#未来&quot; class=&quot;headerlink&quot; title=&quot;未来&quot;&gt;&lt;/a&gt;未来&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;模块化&lt;/li&gt;
+&lt;li&gt;混合语言（java平台上多语言很合编程正成为主流）&lt;/li&gt;
+&lt;li&gt;多核并行（函数式）&lt;/li&gt;
+&lt;li&gt;进一步丰富语法&lt;/li&gt;
+&lt;li&gt;64位虚拟机&lt;/li&gt;
+&lt;/ul&gt;
+    
+    </summary>
+    
+    
+  </entry>
+  
+  <entry>
+    <title>思考的乐趣-读书笔记</title>
+    <link href="https://wangsaisai.github.io/2017/05/04/THINKING-OF-FUN_reading_notes/"/>
+    <id>https://wangsaisai.github.io/2017/05/04/THINKING-OF-FUN_reading_notes/</id>
+    <published>2017-05-04T13:26:52.000Z</published>
+    <updated>2017-05-04T13:26:52.000Z</updated>
+    
+    <content type="html"><![CDATA[<h1 id="1-概率论教你说谎"><a href="#1-概率论教你说谎" class="headerlink" title="1. 概率论教你说谎"></a>1. 概率论教你说谎</h1><h3 id="贝叶斯定理"><a href="#贝叶斯定理" class="headerlink" title="贝叶斯定理"></a>贝叶斯定理</h3><blockquote>
+<p>直观意义：当你获知了一个新的信息后，你对原事件的看法所做的改变</p>
+</blockquote>
+<p><img src="http://chart.googleapis.com/chart?cht=tx&chl=P(A|B)=\frac{P(B|A)*P(A)}{P(B)}" style="border:none;"></p>
+<h3 id="贝叶斯应用"><a href="#贝叶斯应用" class="headerlink" title="贝叶斯应用"></a>贝叶斯应用</h3><ul>
+<li>P(A) : M同学在外通宵修炼概率</li>
+<li>P(B) : M同学手中有电影票概率</li>
+<li>P(A|B) : 当M同学手中的电影票被发现后，他在外通宵概率</li>
+<li>P(B|A) : 若昨晚M在外通宵，他手中有电影票概率<br>若要降低P(A|B)的概率</li>
+</ul>
+<ol>
+<li>增加P(B) : 养成保存电影票习惯</li>
+<li>减小P(A) : 少在外通宵修炼</li>
+<li>减小P(B|A) : 不轻易拿出电影票据</li>
+</ol>
+<a id="more"></a>
+<h1 id="2-找东西背后的概率问题"><a href="#2-找东西背后的概率问题" class="headerlink" title="2. 找东西背后的概率问题"></a>2. 找东西背后的概率问题</h1><blockquote>
+<p>8个抽屉，文件随机放入某个抽屉。1/5 概率文件未放进抽屉，文件搞丢了。求打开前n个抽屉，没找到文件的情况下，文件在剩余抽屉的概率。</p>
+<p>直观感觉：n越大，文件在剩余抽屉的概率越高<br>事实：n越大，文件在剩余抽屉的概率越低</p>
+</blockquote>
+<h3 id="解法1"><a href="#解法1" class="headerlink" title="解法1"></a>解法1</h3><ul>
+<li>8个抽屉， 1/5 概率搞丢。可假设另有两个虚拟抽屉，存放搞丢的文件。</li>
+<li>找n个抽屉未找到，则文件在剩下的 （10 - n）个抽屉中</li>
+<li>只能打开剩下的 （8 - n）个抽屉，因此所求概率为</li>
+</ul>
+<p><img src="http://chart.googleapis.com/chart?cht=tx&chl=$$\frac{8-n}{10-n}$$" style="border:none;"></p>
+<p>即<br><img src="http://chart.googleapis.com/chart?cht=tx&chl=1-\frac{2}{10-n}" style="border:none;"></p>
+<p>是一个递减函数：<strong>n越大，文件在剩余抽屉概率越低</strong></p>
+<h3 id="解法2"><a href="#解法2" class="headerlink" title="解法2"></a>解法2</h3><ul>
+<li><p>P(A) : 文件不在前n个抽屉中<br><img src="http://chart.googleapis.com/chart?cht=tx&chl=1-\frac{4}{5}*\frac{n}{8}" style="border:none;"></p>
+</li>
+<li><p>P(B) : 文件在剩下的抽屉中<br><img src="http://chart.googleapis.com/chart?cht=tx&chl=P(B)=\frac{4}{5}*\frac{8-n}{8}" style="border:none;"></p>
+</li>
+<li><p>显然P(A|B) = 1</p>
+</li>
+<li>根据贝叶斯定理，则<br><img src="http://chart.googleapis.com/chart?cht=tx&chl=P(B|A)=\frac{P(A|B)*P(B)}{P(A)}=\frac{8-n}{10-n}" style="border:none;"></li>
+</ul>
+<h1 id="3-设计调查问卷的艺术"><a href="#3-设计调查问卷的艺术" class="headerlink" title="3. 设计调查问卷的艺术"></a>3. 设计调查问卷的艺术</h1><blockquote>
+<p>极度隐私问题，用户未必如实回答</p>
+</blockquote>
+<p>针对只有是否两个选项的隐私题目（特定题目，非全部题目）可以如下设计：</p>
+<ul>
+<li>问卷上准备一枚硬币（同时作为填写问卷酬谢）</li>
+<li>隐私题目，请投硬币。正面朝上，填写真实情况；反面朝上，在投掷一次，正面选是，反面选否</li>
+<li>若第一次为正面，用户扔可以在投掷一次，可掩人耳目</li>
+<li>通过概率学，可计算出真正意愿选“是”概率，和选“否”概率</li>
+</ul>
+<h1 id="4-统计数据的陷阱"><a href="#4-统计数据的陷阱" class="headerlink" title="4. 统计数据的陷阱"></a>4. 统计数据的陷阱</h1><h3 id="虚假独立性数据"><a href="#虚假独立性数据" class="headerlink" title="虚假独立性数据"></a>虚假独立性数据</h3><blockquote>
+<p>统计数据显示，铀矿工人寿命与其他人相当，甚至更长<br>由此，推论出 铀矿工作对身体无害<br>统计数据本身并未说谎，铀矿工人寿命不必普通人底；难就难在如何拨开数据的外表，从中挖掘出正确的信息。<br>事实上，只有身体强健的人才回去铀矿工作，他们的寿命本来就长一些，因为去铀矿工作，寿命被拉回至平均水平，造成数据“伪独立性”。<br>这种现象称为“健康工人效应”</p>
+</blockquote>
+<p>类似现象：打太极和不打太极寿命相同。 打太极的人多体弱</p>
+<h3 id="虚假相关性数据"><a href="#虚假相关性数据" class="headerlink" title="虚假相关性数据"></a>虚假相关性数据</h3><blockquote>
+<p>去救火的消防员越多，火灾损失越大<br>因为火灾大，所以救火消防员多。颠倒了因果关系</p>
+</blockquote>
+<p>事实上，统计上呈相关性的时间，有可能根本就没有因果关系</p>
+<blockquote>
+<p>冰淇淋销量增加，与鲨鱼食人时间增加，呈相关性<br>两者并无因果关系。都是因为夏天到了，导致的现象</p>
+</blockquote>
+<h3 id="辛普森悖论"><a href="#辛普森悖论" class="headerlink" title="辛普森悖论"></a>辛普森悖论</h3><p>各个局部表现很好，合起来反而更差</p>
+<blockquote>
+<p>A学校，B学校<br>A学校的各个学院 的女生比例 都高于 B学校<br>统计整个学校，B学校女生比例高于A学校<br>原因是因为，两个学校的不同学院之间，人数不同</p>
+</blockquote>
+<h1 id="5-为什么人们往往不愿意承担风险"><a href="#5-为什么人们往往不愿意承担风险" class="headerlink" title="5. 为什么人们往往不愿意承担风险"></a>5. 为什么人们往往不愿意承担风险</h1><blockquote>
+<p>经济学：收入本身并不重要，收入带来的好处，或者幸福感，满足感</p>
+</blockquote>
+<p>收入的边际效用是递减的。（收入每增加一个单位，带来的额外效用减小）</p>
+<p>若一个人认为收入的边际效用是递减的，则这个人是一个风险规避者。对于期望收入相同的两件事，他更愿意做封校更小的一件。<br>风险规避者甚至有可能通过减少自己的收入来避免可能的风险</p>
+<h1 id="6-消费税"><a href="#6-消费税" class="headerlink" title="6.消费税"></a>6.消费税</h1><blockquote>
+<p>曼昆 《经济学原理》 — 经济学领域最经典教材之一</p>
+</blockquote>
+<p>政府向消费者征税，买方消费欲望降低，购买力下降，导致卖方的供给也会变低，达到新的平衡。因此，消费税是由消费者和卖家共同承担的。<br>政府向卖家征税也是同样道理。</p>
+<h3 id="奢侈品"><a href="#奢侈品" class="headerlink" title="奢侈品"></a>奢侈品</h3><blockquote>
+<p>买奢侈品的都是富人，因此向消费者征税<br>奢侈品非生活必须品，价格升高，大量消费者退出市场<br>奢侈品供给曲线非常陡，即使价格变化很大，产量仍然变化不大，因为制造奢侈品需要很多时间，人力。生产商无法快速应对市场需求变化。<br>虽然向买方征税，税多数由生产者承担。与政府决策适得其反</p>
+</blockquote>
+<p>向消费者征税，与向生产者征税的效果完全一样。（最终，生产者承担税费，与消费者承担税费都相同）（供需曲线都是直线时，可以从数学上证明此结论）</p>
+<h1 id="7-价格里的阴谋"><a href="#7-价格里的阴谋" class="headerlink" title="7. 价格里的阴谋"></a>7. 价格里的阴谋</h1><h3 id="价格歧视"><a href="#价格歧视" class="headerlink" title="价格歧视"></a>价格歧视</h3><p>为不同消费者制定不同价格的策略</p>
+<p>对于一个恶汉来说，第一个烧饼的价值显然比第七个烧饼的价值更高。<br>同样，工资提高事，针对等额的提升度，工资低的所带来的价值更高<br>同等金额，对于穷人和富人的价值不同。</p>
+<h3 id="二级价格歧视"><a href="#二级价格歧视" class="headerlink" title="二级价格歧视"></a>二级价格歧视</h3><p>让高端消费者自动选择高价位商品的定价策略</p>
+<p>想办法拉大高端套餐和低端套餐的差距，可以向高端用户收取更高的费用。<br>一个有趣的现象：让低端产品更低端，反而会增大生产商的收益。</p>
+<p>二级价格歧视理论 产生的奇怪现象：<br>快递：次日达，隔日达，普通到达。同一天寄出的商品，也都是同一天到达，隔日达的商品会在仓库中存一天（为了区分不同档次的产品，商家有意设置低端消费品）<br>IBM曾研发让打印机慢速打印的设备<br>飞机，头等舱，经济舱都是同样的原理</p>
+<h3 id="三级价格歧视"><a href="#三级价格歧视" class="headerlink" title="三级价格歧视"></a>三级价格歧视</h3><p>直接给商品提供不同的价格。</p>
+<p>明显三级价格歧视：</p>
+<ul>
+<li>学生证半价；</li>
+<li>同一商品，不同省份价格不同；</li>
+<li>高速公路对不同车型收费不同等。</li>
+</ul>
+<p>隐蔽的三级价格歧视：</p>
+<ul>
+<li>狡诈的电商网站，点击“从高到低排序”，会给出更高的价格；</li>
+<li>优惠券；30%的人会保留使用，70%弄丢或过期。区分了不同用户，相当于为对价格比较敏感的低端用户提供了优惠</li>
+<li>邮寄回扣，吧收据，反馈卡，回扣申请表等寄回厂家。国外电子产品较常见</li>
+</ul>
+<p>游乐园，火车票，电影票不大能分出消费者等级。因此二级价格歧视无效，多使用三级价格歧视</p>
+<h3 id="两部分定价"><a href="#两部分定价" class="headerlink" title="两部分定价"></a>两部分定价</h3><p>入场费 + 消费的费用<br>游乐场，酒吧常用此方式。会员入会费，信用卡年费，手机月租费等</p>
+<h3 id="捆绑销售"><a href="#捆绑销售" class="headerlink" title="捆绑销售"></a>捆绑销售</h3><blockquote>
+<p>不一定总是适用。<br>适用场景；不同买家对捆绑的商品具有不同的偏好</p>
+</blockquote>
+<p>word，excel，ppt捆绑销售</p>
+<p>维基百科上“pricing strategies”, 共有20多种定价策略<br>link : <a href="https://en.wikipedia.org/wiki/Pricing_strategies" target="_blank" rel="noopener">https://en.wikipedia.org/wiki/Pricing_strategies</a><br>终极目的都是一致的：尽可能从消费者身上赚取更多利润</p>
+<h1 id="8-公用品的悲剧"><a href="#8-公用品的悲剧" class="headerlink" title="8.公用品的悲剧"></a>8.公用品的悲剧</h1><p>类似于囚徒困境的原理</p>
+<p>对单个用户来讲，做比不做带来更大收益，都选择做</p>
+<ul>
+<li>挤公交：对等公交的人，能挤上比挤不上收益更大</li>
+<li>企业污染环境：排放污水降低开销，污染环境的代价由全体承担，均摊到自己很少，所以要污染环境</li>
+<li>车祸越离奇，堵车越严重，即使车祸没挡住路。司机会观看车祸，甚至拍照等，对车祸现场的司机来说，观看车祸的收益，比自己登上一分钟收益更大，导致后面的车辆都要多等一分钟</li>
+</ul>
+<h1 id="10-公平分割"><a href="#10-公平分割" class="headerlink" title="10.公平分割"></a>10.公平分割</h1><h3 id="均衡分割"><a href="#均衡分割" class="headerlink" title="均衡分割"></a>均衡分割</h3><p>两个人分：你来分，我来选。（分的人，收益是一半，选的人收益可能超过一半）</p>
+<p>多个人分，假设4个人。分割过程：</p>
+<ul>
+<li>选两人，你来分，我来选（共两份）</li>
+<li>让这两个人把各自手中的蛋糕分成3份（共2*3=6份），让第3个人从2人中各选一份</li>
+<li>这3个人把各自手中蛋糕分成4份（共3*4份），让第4个人从3人手中各选1份</li>
+<li>分割结束，每个人得到自己手中的蛋糕份额</li>
+</ul>
+<p>最后削减人算法：</p>
+<ul>
+<li>第1个人，从蛋糕中切出他所认为的1/n, 交给第2个人。</li>
+<li>第2个人也可从中切出一小块，交给第3个人，</li>
+<li>依次类推，每个人拿到蛋糕后都有一次修剪机会，然后移交给下一个人，最后一个修剪蛋糕的人将获得这块蛋糕</li>
+<li>余下的n-1个人从头开始重复这个过程</li>
+</ul>
+<h3 id="免嫉妒分割"><a href="#免嫉妒分割" class="headerlink" title="免嫉妒分割"></a>免嫉妒分割</h3><p>免嫉妒分割比均衡分割更强的要求。免嫉妒分割一定也满足均衡分割。<br>蛋糕上有说过，巧克力，奶油等，每个人认为的价值不一样，有人爱吃水果，有人爱吃巧克力。构造出免嫉妒的分割方案非常困难。</p>
+<p>3人免嫉妒分割方案：</p>
+<ul>
+<li>A,B,C 3人，A把蛋糕3等分（按价值等分，当然是按照A的价值标准分割）</li>
+<li>B若认为3块中，较大的两块一样大，则按照C,B,A的顺序选蛋糕，问题解决；B若认为较大的两块不一样大，则B把较大一块切下一部分，使其跟第二大的蛋糕一样大，按照C,B,A顺序选取，但有个限制，若C没选被修剪的蛋糕，B必须选它。</li>
+<li>此时，每人都分得一份蛋糕。被修剪蛋糕在B或C手中。C第一个选，不会妒忌别人；B选取了两个较大块中的一个，也不会妒忌别人，A是分蛋糕的，也不会妒忌别人。</li>
+<li>还剩一小块，进入分割流程第二轮</li>
+<li>被修剪蛋糕在B或C手中。X表示拿到修剪蛋糕的人，B,C中未拿到修剪蛋糕的用Y表示，A还用A表示。</li>
+<li>Y切分，X，A，Y的顺序取。第二轮结束。</li>
+<li>X第一个取，不会妒忌别人；A在第一轮已经拿到了足够的价值，即使不参与第二轮，也不会妒忌别人；Y是分蛋糕的，也不会妒忌别人。</li>
+<li>分割结束，所有人都不会妒忌别人</li>
+</ul>
+<p>以上方法，只适合3个人的情况，对于人数更多的情况，数学家还没有找到一个比较可行的方案</p>
+<h1 id="数学之美"><a href="#数学之美" class="headerlink" title="数学之美"></a>数学之美</h1><h3 id="幻方"><a href="#幻方" class="headerlink" title="幻方"></a>幻方</h3><table>
+<thead>
+<tr>
+<th>8</th>
+<th>1</th>
+<th>6</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3</td>
+<td>5</td>
+<td>7</td>
+</tr>
+<tr>
+<td>4</td>
+<td>9</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+<p>$$816^2 + 357^2 + 492^2 = 618^2 + 753^2 + 294^2$$<br>所有幻方均满足上述性质</p>
+<h3 id="欧拉恒等式"><a href="#欧拉恒等式" class="headerlink" title="欧拉恒等式"></a>欧拉恒等式</h3><p>$$e^{\pi i} + 1 = 0$$</p>
+<p>三角形一共发现有5000多个心，目前数目还在不断增加<br>任意给定两个面积相等的多边形，它们之间都可以通过剪拼得到<br>俄罗斯方块可以永远玩下去吗？ —- <strong>不能</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h1 id=&quot;1-概率论教你说谎&quot;&gt;&lt;a href=&quot;#1-概率论教你说谎&quot; class=&quot;headerlink&quot; title=&quot;1. 概率论教你说谎&quot;&gt;&lt;/a&gt;1. 概率论教你说谎&lt;/h1&gt;&lt;h3 id=&quot;贝叶斯定理&quot;&gt;&lt;a href=&quot;#贝叶斯定理&quot; class=&quot;headerlink&quot; title=&quot;贝叶斯定理&quot;&gt;&lt;/a&gt;贝叶斯定理&lt;/h3&gt;&lt;blockquote&gt;
+&lt;p&gt;直观意义：当你获知了一个新的信息后，你对原事件的看法所做的改变&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;img src=&quot;http://chart.googleapis.com/chart?cht=tx&amp;chl=P(A|B)=\frac{P(B|A)*P(A)}{P(B)}&quot; style=&quot;border:none;&quot;&gt;&lt;/p&gt;
+&lt;h3 id=&quot;贝叶斯应用&quot;&gt;&lt;a href=&quot;#贝叶斯应用&quot; class=&quot;headerlink&quot; title=&quot;贝叶斯应用&quot;&gt;&lt;/a&gt;贝叶斯应用&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;P(A) : M同学在外通宵修炼概率&lt;/li&gt;
+&lt;li&gt;P(B) : M同学手中有电影票概率&lt;/li&gt;
+&lt;li&gt;P(A|B) : 当M同学手中的电影票被发现后，他在外通宵概率&lt;/li&gt;
+&lt;li&gt;P(B|A) : 若昨晚M在外通宵，他手中有电影票概率&lt;br&gt;若要降低P(A|B)的概率&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol&gt;
+&lt;li&gt;增加P(B) : 养成保存电影票习惯&lt;/li&gt;
+&lt;li&gt;减小P(A) : 少在外通宵修炼&lt;/li&gt;
+&lt;li&gt;减小P(B|A) : 不轻易拿出电影票据&lt;/li&gt;
+&lt;/ol&gt;
+    
+    </summary>
+    
+    
+  </entry>
+  
+  <entry>
+    <title>HashMap工作原理</title>
+    <link href="https://wangsaisai.github.io/2017/05/04/HashMap/"/>
+    <id>https://wangsaisai.github.io/2017/05/04/HashMap/</id>
+    <published>2017-05-04T13:26:23.000Z</published>
+    <updated>2017-05-04T13:26:23.000Z</updated>
+    
+    <content type="html"><![CDATA[<p>最近参与公司的实习生招聘工作，面试了几位实习生，我有一道每次面试都必问的题目【HasmMap的工作原理】，但很遗憾，至今还没遇到令我完全满意的回答。今天这篇文章就来回答下HashMap相关的面试题。</p>
+<h2 id="1-什么是HashMap？"><a href="#1-什么是HashMap？" class="headerlink" title="1. 什么是HashMap？"></a>1. 什么是HashMap？</h2><p>java.util.HashMap是Java语言标准库中的一个容器类，主要用来存储键值对。是数据结构中哈希表在Java语言的一个实现。</p>
+<p>哈希表是数据结构中的一个概念，可以存储n个元素，取元素的时间复杂度为O(1).</p>
+<p>一般情况下，从n个元素中查找一个元素，时间复杂度为O(n). 为何哈希表能有O(1)的时间复杂度？</p>
+<p>因为元素在存储时已经大致确定了位置，查找的时候可以定位到对应的位置，因此时间复杂度为O(1).</p>
+<a id="more"></a>
+<h2 id="2-HashMap中的数据结构"><a href="#2-HashMap中的数据结构" class="headerlink" title="2. HashMap中的数据结构"></a>2. HashMap中的数据结构</h2><p>HashMap使用数组+链表的方式实现。</p>
+<p>数组的作用主要是定位元素位置。</p>
+<p>链表的作用是解决哈希冲突问题。遇到hash值相等的key，就把相应键值使用链表的方式全部保存下来。</p>
+<h2 id="3-put操作"><a href="#3-put操作" class="headerlink" title="3. put操作"></a>3. put操作</h2><p>put方法定义</p>
+<pre><code>public V put(K key, V value)
+</code></pre><p>put操作执行过程：</p>
+<p>a. 计算key的hashcode</p>
+<p>b. 根据hashcode计算出需要将该键值对存储的位置-即桶的位置</p>
+<p>c. 找到桶的位置后，如果桶未被占用，则存入该键值对；若桶中已有数据，则需要遍历桶中数据，并且比较key的equals方法。遇到key相同的，则用新的value，把旧值替换掉（put操作会将旧值覆盖掉）。若没找到，则将该键值对存储在链表的末尾。</p>
+<h2 id="4-get操作"><a href="#4-get操作" class="headerlink" title="4. get操作"></a>4. get操作</h2><p>get方法定义</p>
+<pre><code>public V get(Object key)
+</code></pre><p>get操作执行过程：</p>
+<p>a. 计算key的hashcode</p>
+<p>b. 根据hashcode，定位该元素所在桶的位置</p>
+<p>c. 若桶为空，则返回null；若桶不空，则遍历桶中数据，比较key的equals方法，若遇到相同的元素，则返回对于的value中；没遇到，则返回null</p>
+<h2 id="5-什么样的类型可以作为HashMap的key？"><a href="#5-什么样的类型可以作为HashMap的key？" class="headerlink" title="5. 什么样的类型可以作为HashMap的key？"></a>5. 什么样的类型可以作为HashMap的key？</h2><p>a. 重写hashCode() 和 equals() 方法</p>
+<p>HashMap在get/put数据时，需要调用hashCode() 和 equals() 方法，因此只有重写了hashCode() 和 equals() 方法的类，才可以作为HashMap的key。</p>
+<p>（hashCode相同，对象不一定相等；对象相等，则hashCode必然相同）</p>
+<p>b. 不可变性</p>
+<p>不可变性也是必要的，若元素可变，则相应hashCode也会发生变化，调用get()方法时，可能找不到相应的value，甚至可能找到错误的value。</p>
+<h2 id="6-如何计算数组下标"><a href="#6-如何计算数组下标" class="headerlink" title="6. 如何计算数组下标"></a>6. 如何计算数组下标</h2><p>在JDK1.8之前的版本中，是通过key的hashCode()进行hashing，然后将( n-1 &amp; hash)来确定数组下标，即桶的位置。</p>
+<p>在JDK1.8版本，将hash值的高16位与低16位进行异或</p>
+<p>JDK 1.8：</p>
+<pre><code>(h = key.hashCode()) ^ (h &gt;&gt;&gt;16)
+</code></pre><p>这样做的目的主要是为了减少哈希冲突的可能性。特别是数据量较小时，旧的计算方式哈希冲突的可能比较大。</p>
+<h2 id="7-HashMap的两个重要概念"><a href="#7-HashMap的两个重要概念" class="headerlink" title="7. HashMap的两个重要概念"></a>7. HashMap的两个重要概念</h2><p>容量(Capacity)，即HashMap中数组的大小，也是桶的个数</p>
+<p>负载因子(load factor)，也成装载因子 = hashmap中实际保存键值对个数 / hashmap中数组的大小</p>
+<p>随着HashMap中元素个数的增多，负载因子增大。如果不做额外的处理，则桶中的链表会越来越长，因此HashMap就无法保证取元素时O(1)的时间复杂度。因此，必须要调整HashMap中数组的大小</p>
+<p>HashMap中定义的默认负载因子大小为0.75，当负载因子大于该值时，将对数组进行扩容</p>
+<h2 id="8-HashMap其他面试题"><a href="#8-HashMap其他面试题" class="headerlink" title="8. HashMap其他面试题"></a>8. HashMap其他面试题</h2><p>HashMap与HashTable区别：Hashtable中加入了锁，线程安全；HashMap线程不安全。也正因为Hashtable中加入了锁，导致性能上要差于HashMap。</p>
+<p>ConcurrentHashMap：HashMap、Hashtable在性能和安全性上的一个折中方案。实现原理是ConcurrentHashMap中将Map划分为多个子Map，子Map分别加锁。对一个子Map加锁以后，不影响对其他子Map的访问。</p>
+<h2 id="9-为什么要面试这道题目"><a href="#9-为什么要面试这道题目" class="headerlink" title="9. 为什么要面试这道题目"></a>9. 为什么要面试这道题目</h2><p>a. 考察求职者技术水平.</p>
+<p>我一把把这道题目作为第一道面试题来考察求职者。根据回答情况，能大致推测到求职者的水平，方便后续的面试。</p>
+<p>零级水平：完全不知道。（当然，这种可能性很少。毕竟HashMap是非常常用的一个工具类）</p>
+<p>一级水平：可以回答HashMap的时间复杂度，容量，装载因子等概念</p>
+<p>二级水平：回答出get/put操作的完整过程。（多数求职者都没能完整的回答这个问题。能完全回答出这个问题，说明求职者对哈希的思想有完整的理解，而且很可能阅读过HashMap的源码 - 要想写好代码，首先要阅读优秀源代码的习惯）</p>
+<p>三级水平：回答出hashCode，equals作用，不可变性，线程安全的Map（基本上满足公司实习生的要求，可以发offer了）</p>
+<p>b. 考察求职者表达能力</p>
+<p>能够把一件复杂的事情讲的清晰易懂，是件了不起的能力。（笔者在这方面能力有所欠佳）</p>
+<hr>
+<p>注：</p>
+<p>HashMap中其实允许null作为key，因为在get/put操作时都会对null值做特殊的处理。</p>
+<p>本文主要是从哈希表的角度来讲述HashMap，因此这些细节问题并未涉及。</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;最近参与公司的实习生招聘工作，面试了几位实习生，我有一道每次面试都必问的题目【HasmMap的工作原理】，但很遗憾，至今还没遇到令我完全满意的回答。今天这篇文章就来回答下HashMap相关的面试题。&lt;/p&gt;
+&lt;h2 id=&quot;1-什么是HashMap？&quot;&gt;&lt;a href=&quot;#1-什么是HashMap？&quot; class=&quot;headerlink&quot; title=&quot;1. 什么是HashMap？&quot;&gt;&lt;/a&gt;1. 什么是HashMap？&lt;/h2&gt;&lt;p&gt;java.util.HashMap是Java语言标准库中的一个容器类，主要用来存储键值对。是数据结构中哈希表在Java语言的一个实现。&lt;/p&gt;
+&lt;p&gt;哈希表是数据结构中的一个概念，可以存储n个元素，取元素的时间复杂度为O(1).&lt;/p&gt;
+&lt;p&gt;一般情况下，从n个元素中查找一个元素，时间复杂度为O(n). 为何哈希表能有O(1)的时间复杂度？&lt;/p&gt;
+&lt;p&gt;因为元素在存储时已经大致确定了位置，查找的时候可以定位到对应的位置，因此时间复杂度为O(1).&lt;/p&gt;
+    
+    </summary>
+    
+    
+  </entry>
+  
+</feed>
