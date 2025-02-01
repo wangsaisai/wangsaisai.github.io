@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>Flink KeyGroup机制导致的数据倾斜问题 | Bamboo Liu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="Flink KeyGroup机制导致的数据倾斜问题业务背景数据源位于Kafka中，将相同Key的数据聚合成Batch，写入HBase中. 即：kafka(sourceStream) –&gt; keyby(batch) –&gt; hbase(sink) 核心代码如下 12345sourceStream    .keyBy(CustomerData::getCustomerKey)    .pro">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Flink KeyGroup机制导致的数据倾斜问题">
+<meta property="og:url" content="http://example.com/2022/07/03/flink-keygroup-dataskew/index.html">
+<meta property="og:site_name" content="Bamboo Liu">
+<meta property="og:description" content="Flink KeyGroup机制导致的数据倾斜问题业务背景数据源位于Kafka中，将相同Key的数据聚合成Batch，写入HBase中. 即：kafka(sourceStream) –&gt; keyby(batch) –&gt; hbase(sink) 核心代码如下 12345sourceStream    .keyBy(CustomerData::getCustomerKey)    .pro">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/images/flink-keygroup-dataskew.png">
+<meta property="article:published_time" content="2022-07-02T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-02-01T07:54:30.585Z">
+<meta property="article:author" content="Bamboo Liu">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/images/flink-keygroup-dataskew.png">
+  
+    <link rel="alternate" href="/atom.xml" title="Bamboo Liu" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Bamboo Liu</a>
+      </h1>
+      
+        <h2 id="subtitle-wrap">
+          <a href="/" id="subtitle">A blog of learn, reading, thinking, AI...</a>
+        </h2>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/atom.xml" title="RSS 订阅"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="搜索"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="搜索"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://example.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main"><article id="post-flink-keygroup-dataskew" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2022/07/03/flink-keygroup-dataskew/" class="article-date">
+  <time class="dt-published" datetime="2022-07-02T16:00:00.000Z" itemprop="datePublished">2022-07-03</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="p-name article-title" itemprop="headline name">
+      Flink KeyGroup机制导致的数据倾斜问题
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <h1 id="Flink-KeyGroup机制导致的数据倾斜问题"><a href="#Flink-KeyGroup机制导致的数据倾斜问题" class="headerlink" title="Flink KeyGroup机制导致的数据倾斜问题"></a>Flink KeyGroup机制导致的数据倾斜问题</h1><h3 id="业务背景"><a href="#业务背景" class="headerlink" title="业务背景"></a>业务背景</h3><p>数据源位于Kafka中，将相同Key的数据聚合成Batch，写入HBase中.</p>
+<p>即：kafka(sourceStream) –&gt; keyby(batch) –&gt; hbase(sink)</p>
+<p>核心代码如下</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">sourceStream</span><br><span class="line">    .keyBy(CustomerData::getCustomerKey)</span><br><span class="line">    .process(<span class="keyword">new</span> <span class="title class_">CustomerKeyedProcessFunction</span>())</span><br><span class="line">    .returns(CustomerBatch.class)</span><br><span class="line">    .addSink(hbaseSink);</span><br></pre></td></tr></table></figure>
+
+<p>使用Flink版本：1.13.2</p>
+<h3 id="数据倾斜现象"><a href="#数据倾斜现象" class="headerlink" title="数据倾斜现象"></a>数据倾斜现象</h3><p>测试Case：Flink并发度：180，SubTask高低倾斜率约为216:144 &#x3D; 3：2</p>
+<span id="more"></span>
+
+<p><img src="/images/flink-keygroup-dataskew.png" alt="图片1" title="skew"></p>
+<h3 id="原因分析"><a href="#原因分析" class="headerlink" title="原因分析"></a>原因分析</h3><p>Key-Groups是Flink对Key进行分组。进入Flink的数据有无限种可能，把无限可能的Key通过某种算法分成有限个组。</p>
+<p>key根据其HashCode会分配到某个keyGroup，算法如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="type">int</span> <span class="title function_">assignToKeyGroup</span><span class="params">(Object key, <span class="type">int</span> maxParallelism)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> computeKeyGroupForKeyHash(key.hashCode(), maxParallelism);</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="type">int</span> <span class="title function_">computeKeyGroupForKeyHash</span><span class="params">(<span class="type">int</span> keyHash, <span class="type">int</span> maxParallelism)</span> &#123;</span><br><span class="line">    <span class="comment">// MathUtils.murmurHash(int hash) 方法是Flink提供的静态方法，将hash值再次散列，避免用户数据分布不均</span></span><br><span class="line">    <span class="keyword">return</span> MathUtils.murmurHash(keyHash) % maxParallelism;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>KeyGroup数量等于最大并发度，最大并行度的算法如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="type">int</span> <span class="title function_">computeDefaultMaxParallelism</span><span class="params">(<span class="type">int</span> operatorParallelism)</span> &#123;</span><br><span class="line"> </span><br><span class="line">    checkParallelismPreconditions(operatorParallelism);</span><br><span class="line"> </span><br><span class="line"> <span class="keyword">return</span> Math.min(</span><br><span class="line">            Math.max(</span><br><span class="line">                    MathUtils.roundUpToPowerOfTwo(</span><br><span class="line">                            operatorParallelism + (operatorParallelism / <span class="number">2</span>)),</span><br><span class="line"> DEFAULT_LOWER_BOUND_MAX_PARALLELISM),</span><br><span class="line"> UPPER_BOUND_MAX_PARALLELISM);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>即 min(32768, max(128, MathUtils.roundUpToPowerOfTwo(operatorParallelism*1.5)))</p>
+<p>测试时，operatorParallelism &#x3D; 180， 计算得到的MaxParallelism&#x3D;512，总共有512个KeyGroup.</p>
+<p>512个KeyGroup分配给180个SubTask，(512&#x2F;180&#x3D;2.84), 少数SubTask会被分配到2个KeyGroup，多数SubTask会被分配到3个KeyGroup。因此数据倾斜比为2：3，跟观测结果一致</p>
+<h3 id="解决"><a href="#解决" class="headerlink" title="解决"></a>解决</h3><p>自定义MaxParallelism参数，不使用默认值</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">env.getConfig().setMaxParallelism(<span class="number">4096</span>);</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>Flink官网提醒注意：调高最大并行度产生更多Key Groups组数，使状态元数据增大，Checkpoint快照也随之增大，降低性能。<br>实际测试发现，该部分影响很小（未发现checkpoint大小显著变化）,推测原因是状态总数据量大，导致状态元数据量的增长不明显</p>
+</blockquote>
+<h3 id="Flink为何如此设计-KeyGroup由来"><a href="#Flink为何如此设计-KeyGroup由来" class="headerlink" title="Flink为何如此设计 - KeyGroup由来"></a>Flink为何如此设计 - KeyGroup由来</h3><p>Flink为何不根据自定义并发度进行计算？<br>在Flink早期版本中，并没有KeyGroup的概念，数据按照任务并发度来拆分。<br>但存在一个弊端：如果后续需要修改并发度，任务重启时，需要重新将CheckPoint中保存的Key进行计算，重新分配到各个subtask中，耗时较长。<br>为了解决这个问题，Flink才设计了KeyGroup机制。</p>
+<h3 id="参考文档"><a href="#参考文档" class="headerlink" title="参考文档"></a>参考文档</h3><ol>
+<li><a target="_blank" rel="noopener" href="https://www.yuque.com/deadwind/notes/flink-key-groups">https://www.yuque.com/deadwind/notes/flink-key-groups</a></li>
+<li><a target="_blank" rel="noopener" href="https://issues.apache.org/jira/browse/FLINK-3755">https://issues.apache.org/jira/browse/FLINK-3755</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/nazeniwaresakini/article/details/104220138">https://blog.csdn.net/nazeniwaresakini/article/details/104220138</a></li>
+</ol>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2022/07/03/flink-keygroup-dataskew/" data-id="cm6lwewrl00054q9jclj155fr" data-title="Flink KeyGroup机制导致的数据倾斜问题" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+  
+    <a href="/2019/11/10/standby_gc/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">后一篇</strong>
+      <div class="article-nav-title">生产环镜Standby NameNode GC严重问题记录</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">归档</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2022/07/">七月 2022</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/11/">十一月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/10/">十月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/06/">六月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/05/">五月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">三月 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">二月 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/09/">九月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/08/">八月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/07/">七月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/06/">六月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/05/">五月 2017</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">最新文章</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2022/07/03/flink-keygroup-dataskew/">Flink KeyGroup机制导致的数据倾斜问题</a>
+          </li>
+        
+          <li>
+            <a href="/2019/11/10/standby_gc/">生产环镜Standby NameNode GC严重问题记录</a>
+          </li>
+        
+          <li>
+            <a href="/2019/10/19/kubernetes-install/">使用kubeadm创建kubernetes单主集群 - ubuntu</a>
+          </li>
+        
+          <li>
+            <a href="/2019/06/13/jvm-docker/">jvm improve docker container detection and resource configuration usage</a>
+          </li>
+        
+          <li>
+            <a href="/2019/05/23/distribute_theory/">分布式系统相关理论</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2025 Bamboo Liu<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>

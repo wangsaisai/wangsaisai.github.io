@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>Bamboo Liu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta property="og:type" content="website">
+<meta property="og:title" content="Bamboo Liu">
+<meta property="og:url" content="http://example.com/page/2/index.html">
+<meta property="og:site_name" content="Bamboo Liu">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:author" content="Bamboo Liu">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/atom.xml" title="Bamboo Liu" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Bamboo Liu</a>
+      </h1>
+      
+        <h2 id="subtitle-wrap">
+          <a href="/" id="subtitle">A blog of learn, reading, thinking, AI...</a>
+        </h2>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/atom.xml" title="RSS 订阅"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="搜索"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="搜索"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://example.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main">
+  
+    <article id="post-jvm" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2017/07/08/jvm/" class="article-date">
+  <time class="dt-published" datetime="2017-07-07T16:00:00.000Z" itemprop="datePublished">2017-07-08</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="p-name article-title" href="/2017/07/08/jvm/">JVM 简介</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>为了达到给所有硬件提供一致的虚拟机平台的目的，jvm牺牲了一些与硬件相关的性能特性。</p>
+<h1 id="第一章-走进java"><a href="#第一章-走进java" class="headerlink" title="第一章 走进java"></a>第一章 走进java</h1><blockquote>
+<p>2006年，Sun公式宣布最终会将java开源，并建立了OpenJDK组织源码进行独立管理。<br>除了极少数产权代码（Sun本身也无权进行开源处理）外，OpenJDK几乎包括了Sun JDK的全部代码。<br>所以OpenJDK 7 与 Sun JDK 1.7本质史昂就是同一套代码库开发的产品</p>
+</blockquote>
+<h3 id="历史"><a href="#历史" class="headerlink" title="历史"></a>历史</h3><ol>
+<li><p>1996年，sun发布jdk1.0，该jdk中所带的虚拟机就是Classic VM. 这款虚拟机采用纯解释权方式来执行java代码，若用jit编译器，就必须外挂。使用外挂jit编译器后，解释器便不再工作。<br>若用解释器，解释器的性能本来就比较慢。<br>若用编译器，编译器需要对每一行代码都进行编译，由于程序相应时间的压力，不敢应用编译耗时较高的优化技术。<br>由此，“java语言很慢”的形象产生</p>
+</li>
+<li><p>jdk 1.2时，在Solaris平台发布了Exact VM.<br>使用了准确式内存管理（虚拟机可以知道内存中某个位置的数据具体是什么类型）。<br>之前Class VM基于handler（句柄）的对象查找方式，每次定位对象多了一次查找开销</p>
+</li>
+<li><p>HotSpot VM：准确式内存管理，热点代码探测技术<br>Sun JDK，Open JDK都是使用HotSpot VM</p>
+</li>
+<li><p>Dalvik VM，即android上使用的jvm。<br>严格来说，Dalvik VM不是一个java虚拟机；<br>它没有遵循java虚拟机规范，不能直接执行java的class文件;<br>使用的是寄存器架构而不是jvm中常用的栈架构</p>
+</li>
+<li><p>Microsoft JVM<br>微软曾是java技术铁杆支持者，与sun争夺java控制权，令java从跨平台技术变为绑定在windows上的技术是ms的主要目的。<br>sun起诉微软，微软最终败诉，赔偿sun公司2000万，承诺终止其jvm发展。<br>有趣的是，xp sp3完全抹去了jvm，sun又登报希望微软不要这么做</p>
+</li>
+</ol>
+<h3 id="未来"><a href="#未来" class="headerlink" title="未来"></a>未来</h3><ul>
+<li>模块化</li>
+<li>混合语言（java平台上多语言很合编程正成为主流）</li>
+<li>多核并行（函数式）</li>
+<li>进一步丰富语法</li>
+<li>64位虚拟机</li>
+</ul>
+        
+          <p class="article-more-link">
+            <a href="/2017/07/08/jvm/#more">Read More</a>
+          </p>
+        
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2017/07/08/jvm/" data-id="cm6lwewrq000a4q9j5m4q5a1b" data-title="JVM 简介" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+
+  
+    <article id="post-THINKING-OF-FUN_reading_notes" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2017/06/01/THINKING-OF-FUN_reading_notes/" class="article-date">
+  <time class="dt-published" datetime="2017-05-31T16:00:00.000Z" itemprop="datePublished">2017-06-01</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="p-name article-title" href="/2017/06/01/THINKING-OF-FUN_reading_notes/">思考的乐趣-读书笔记</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <h1 id="1-概率论教你说谎"><a href="#1-概率论教你说谎" class="headerlink" title="1. 概率论教你说谎"></a>1. 概率论教你说谎</h1><h3 id="贝叶斯定理"><a href="#贝叶斯定理" class="headerlink" title="贝叶斯定理"></a>贝叶斯定理</h3><blockquote>
+<p>直观意义：当你获知了一个新的信息后，你对原事件的看法所做的改变</p>
+</blockquote>
+<img src="http://chart.googleapis.com/chart?cht=tx&chl=P(A|B)=\frac{P(B|A)*P(A)}{P(B)}" style="border:none;">
+
+<h3 id="贝叶斯应用"><a href="#贝叶斯应用" class="headerlink" title="贝叶斯应用"></a>贝叶斯应用</h3><ul>
+<li>P(A) : M同学在外通宵修炼概率</li>
+<li>P(B) : M同学手中有电影票概率</li>
+<li>P(A|B) : 当M同学手中的电影票被发现后，他在外通宵概率</li>
+<li>P(B|A) : 若昨晚M在外通宵，他手中有电影票概率<br>若要降低P(A|B)的概率</li>
+</ul>
+<ol>
+<li>增加P(B) : 养成保存电影票习惯</li>
+<li>减小P(A) : 少在外通宵修炼</li>
+<li>减小P(B|A) : 不轻易拿出电影票据</li>
+</ol>
+        
+          <p class="article-more-link">
+            <a href="/2017/06/01/THINKING-OF-FUN_reading_notes/#more">Read More</a>
+          </p>
+        
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2017/06/01/THINKING-OF-FUN_reading_notes/" data-id="cm6lwewrk00034q9j3v4q8cxl" data-title="思考的乐趣-读书笔记" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+
+  
+    <article id="post-HashMap" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2017/05/04/HashMap/" class="article-date">
+  <time class="dt-published" datetime="2017-05-03T16:00:00.000Z" itemprop="datePublished">2017-05-04</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="p-name article-title" href="/2017/05/04/HashMap/">HashMap工作原理</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <p>最近参与公司的实习生招聘工作，面试了几位实习生，我有一道每次面试都必问的题目【HasmMap的工作原理】，但很遗憾，至今还没遇到令我完全满意的回答。今天这篇文章就来回答下HashMap相关的面试题。</p>
+<h2 id="1-什么是HashMap？"><a href="#1-什么是HashMap？" class="headerlink" title="1. 什么是HashMap？"></a>1. 什么是HashMap？</h2><p>java.util.HashMap是Java语言标准库中的一个容器类，主要用来存储键值对。是数据结构中哈希表在Java语言的一个实现。</p>
+<p>哈希表是数据结构中的一个概念，可以存储n个元素，取元素的时间复杂度为O(1).</p>
+<p>一般情况下，从n个元素中查找一个元素，时间复杂度为O(n). 为何哈希表能有O(1)的时间复杂度？</p>
+<p>因为元素在存储时已经大致确定了位置，查找的时候可以定位到对应的位置，因此时间复杂度为O(1).</p>
+        
+          <p class="article-more-link">
+            <a href="/2017/05/04/HashMap/#more">Read More</a>
+          </p>
+        
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2017/05/04/HashMap/" data-id="cm6lwewrc00004q9jb5e9d1ql" data-title="HashMap工作原理" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+
+  
+
+
+  <nav id="page-nav">
+    
+    <a class="extend prev" rel="prev" href="/">&laquo; 上一页</a><a class="page-number" href="/">1</a><span class="page-number current">2</span>
+  </nav>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">归档</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2022/07/">七月 2022</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/11/">十一月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/10/">十月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/06/">六月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/05/">五月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">三月 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">二月 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/09/">九月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/08/">八月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/07/">七月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/06/">六月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/05/">五月 2017</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">最新文章</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2022/07/03/flink-keygroup-dataskew/">Flink KeyGroup机制导致的数据倾斜问题</a>
+          </li>
+        
+          <li>
+            <a href="/2019/11/10/standby_gc/">生产环镜Standby NameNode GC严重问题记录</a>
+          </li>
+        
+          <li>
+            <a href="/2019/10/19/kubernetes-install/">使用kubeadm创建kubernetes单主集群 - ubuntu</a>
+          </li>
+        
+          <li>
+            <a href="/2019/06/13/jvm-docker/">jvm improve docker container detection and resource configuration usage</a>
+          </li>
+        
+          <li>
+            <a href="/2019/05/23/distribute_theory/">分布式系统相关理论</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2025 Bamboo Liu<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>

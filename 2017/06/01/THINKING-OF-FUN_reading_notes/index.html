@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>思考的乐趣-读书笔记 | Bamboo Liu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="1. 概率论教你说谎贝叶斯定理 直观意义：当你获知了一个新的信息后，你对原事件的看法所做的改变    贝叶斯应用 P(A) : M同学在外通宵修炼概率 P(B) : M同学手中有电影票概率 P(A|B) : 当M同学手中的电影票被发现后，他在外通宵概率 P(B|A) : 若昨晚M在外通宵，他手中有电影票概率若要降低P(A|B)的概率   增加P(B) : 养成保存电影票习惯 减小P(A) : 少在">
+<meta property="og:type" content="article">
+<meta property="og:title" content="思考的乐趣-读书笔记">
+<meta property="og:url" content="http://example.com/2017/06/01/THINKING-OF-FUN_reading_notes/index.html">
+<meta property="og:site_name" content="Bamboo Liu">
+<meta property="og:description" content="1. 概率论教你说谎贝叶斯定理 直观意义：当你获知了一个新的信息后，你对原事件的看法所做的改变    贝叶斯应用 P(A) : M同学在外通宵修炼概率 P(B) : M同学手中有电影票概率 P(A|B) : 当M同学手中的电影票被发现后，他在外通宵概率 P(B|A) : 若昨晚M在外通宵，他手中有电影票概率若要降低P(A|B)的概率   增加P(B) : 养成保存电影票习惯 减小P(A) : 少在">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://chart.googleapis.com/chart?cht=tx&chl=P(A|B)=\frac{P(B|A)*P(A)}{P(B)}">
+<meta property="og:image" content="http://chart.googleapis.com/chart?cht=tx&chl=$$\frac{8-n}{10-n}$$">
+<meta property="og:image" content="http://chart.googleapis.com/chart?cht=tx&chl=1-\frac{2}{10-n}">
+<meta property="og:image" content="http://chart.googleapis.com/chart?cht=tx&chl=1-\frac{4}{5}*\frac{n}{8}">
+<meta property="og:image" content="http://chart.googleapis.com/chart?cht=tx&chl=P(B)=\frac{4}{5}*\frac{8-n}{8}">
+<meta property="og:image" content="http://chart.googleapis.com/chart?cht=tx&chl=P(B|A)=\frac{P(A|B)*P(B)}{P(A)}=\frac{8-n}{10-n}">
+<meta property="article:published_time" content="2017-05-31T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-02-01T07:54:30.584Z">
+<meta property="article:author" content="Bamboo Liu">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://chart.googleapis.com/chart?cht=tx&chl=P(A|B)=\frac{P(B|A)*P(A)}{P(B)}">
+  
+    <link rel="alternate" href="/atom.xml" title="Bamboo Liu" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Bamboo Liu</a>
+      </h1>
+      
+        <h2 id="subtitle-wrap">
+          <a href="/" id="subtitle">A blog of learn, reading, thinking, AI...</a>
+        </h2>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/atom.xml" title="RSS 订阅"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="搜索"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="搜索"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://example.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main"><article id="post-THINKING-OF-FUN_reading_notes" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2017/06/01/THINKING-OF-FUN_reading_notes/" class="article-date">
+  <time class="dt-published" datetime="2017-05-31T16:00:00.000Z" itemprop="datePublished">2017-06-01</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="p-name article-title" itemprop="headline name">
+      思考的乐趣-读书笔记
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <h1 id="1-概率论教你说谎"><a href="#1-概率论教你说谎" class="headerlink" title="1. 概率论教你说谎"></a>1. 概率论教你说谎</h1><h3 id="贝叶斯定理"><a href="#贝叶斯定理" class="headerlink" title="贝叶斯定理"></a>贝叶斯定理</h3><blockquote>
+<p>直观意义：当你获知了一个新的信息后，你对原事件的看法所做的改变</p>
+</blockquote>
+<img src="http://chart.googleapis.com/chart?cht=tx&chl=P(A|B)=\frac{P(B|A)*P(A)}{P(B)}" style="border:none;">
+
+<h3 id="贝叶斯应用"><a href="#贝叶斯应用" class="headerlink" title="贝叶斯应用"></a>贝叶斯应用</h3><ul>
+<li>P(A) : M同学在外通宵修炼概率</li>
+<li>P(B) : M同学手中有电影票概率</li>
+<li>P(A|B) : 当M同学手中的电影票被发现后，他在外通宵概率</li>
+<li>P(B|A) : 若昨晚M在外通宵，他手中有电影票概率<br>若要降低P(A|B)的概率</li>
+</ul>
+<ol>
+<li>增加P(B) : 养成保存电影票习惯</li>
+<li>减小P(A) : 少在外通宵修炼</li>
+<li>减小P(B|A) : 不轻易拿出电影票据</li>
+</ol>
+<span id="more"></span>
+
+<h1 id="2-找东西背后的概率问题"><a href="#2-找东西背后的概率问题" class="headerlink" title="2. 找东西背后的概率问题"></a>2. 找东西背后的概率问题</h1><blockquote>
+<p>8个抽屉，文件随机放入某个抽屉。1&#x2F;5 概率文件未放进抽屉，文件搞丢了。求打开前n个抽屉，没找到文件的情况下，文件在剩余抽屉的概率。</p>
+</blockquote>
+<blockquote>
+<p>直观感觉：n越大，文件在剩余抽屉的概率越高<br>事实：n越大，文件在剩余抽屉的概率越低</p>
+</blockquote>
+<h3 id="解法1"><a href="#解法1" class="headerlink" title="解法1"></a>解法1</h3><ul>
+<li>8个抽屉， 1&#x2F;5 概率搞丢。可假设另有两个虚拟抽屉，存放搞丢的文件。</li>
+<li>找n个抽屉未找到，则文件在剩下的 （10 - n）个抽屉中</li>
+<li>只能打开剩下的 （8 - n）个抽屉，因此所求概率为</li>
+</ul>
+<img src="http://chart.googleapis.com/chart?cht=tx&chl=$$\frac{8-n}{10-n}$$" style="border:none;">
+
+<p>即<br><img src="http://chart.googleapis.com/chart?cht=tx&chl=1-\frac{2}{10-n}" style="border:none;"></p>
+<p>是一个递减函数：<strong>n越大，文件在剩余抽屉概率越低</strong></p>
+<h3 id="解法2"><a href="#解法2" class="headerlink" title="解法2"></a>解法2</h3><ul>
+<li>P(A) : 文件不在前n个抽屉中</li>
+</ul>
+<img src="http://chart.googleapis.com/chart?cht=tx&chl=1-\frac{4}{5}*\frac{n}{8}" style="border:none;">
+
+<ul>
+<li>P(B) : 文件在剩下的抽屉中</li>
+</ul>
+<img src="http://chart.googleapis.com/chart?cht=tx&chl=P(B)=\frac{4}{5}*\frac{8-n}{8}" style="border:none;">
+
+<ul>
+<li>显然P(A|B) &#x3D; 1</li>
+<li>根据贝叶斯定理，则</li>
+</ul>
+<img src="http://chart.googleapis.com/chart?cht=tx&chl=P(B|A)=\frac{P(A|B)*P(B)}{P(A)}=\frac{8-n}{10-n}" style="border:none;">
+
+<h1 id="3-设计调查问卷的艺术"><a href="#3-设计调查问卷的艺术" class="headerlink" title="3. 设计调查问卷的艺术"></a>3. 设计调查问卷的艺术</h1><blockquote>
+<p>极度隐私问题，用户未必如实回答</p>
+</blockquote>
+<p>针对只有是否两个选项的隐私题目（特定题目，非全部题目）可以如下设计：</p>
+<ul>
+<li>问卷上准备一枚硬币（同时作为填写问卷酬谢）</li>
+<li>隐私题目，请投硬币。正面朝上，填写真实情况；反面朝上，在投掷一次，正面选是，反面选否</li>
+<li>若第一次为正面，用户扔可以在投掷一次，可掩人耳目</li>
+<li>通过概率学，可计算出真正意愿选“是”概率，和选“否”概率</li>
+</ul>
+<h1 id="4-统计数据的陷阱"><a href="#4-统计数据的陷阱" class="headerlink" title="4. 统计数据的陷阱"></a>4. 统计数据的陷阱</h1><h3 id="虚假独立性数据"><a href="#虚假独立性数据" class="headerlink" title="虚假独立性数据"></a>虚假独立性数据</h3><blockquote>
+<p>统计数据显示，铀矿工人寿命与其他人相当，甚至更长<br>由此，推论出 铀矿工作对身体无害<br>统计数据本身并未说谎，铀矿工人寿命不必普通人底；难就难在如何拨开数据的外表，从中挖掘出正确的信息。<br>事实上，只有身体强健的人才回去铀矿工作，他们的寿命本来就长一些，因为去铀矿工作，寿命被拉回至平均水平，造成数据“伪独立性”。<br>这种现象称为“健康工人效应”</p>
+</blockquote>
+<p>类似现象：打太极和不打太极寿命相同。 打太极的人多体弱</p>
+<h3 id="虚假相关性数据"><a href="#虚假相关性数据" class="headerlink" title="虚假相关性数据"></a>虚假相关性数据</h3><blockquote>
+<p>去救火的消防员越多，火灾损失越大<br>因为火灾大，所以救火消防员多。颠倒了因果关系</p>
+</blockquote>
+<p>事实上，统计上呈相关性的时间，有可能根本就没有因果关系</p>
+<blockquote>
+<p>冰淇淋销量增加，与鲨鱼食人时间增加，呈相关性<br>两者并无因果关系。都是因为夏天到了，导致的现象</p>
+</blockquote>
+<h3 id="辛普森悖论"><a href="#辛普森悖论" class="headerlink" title="辛普森悖论"></a>辛普森悖论</h3><p>各个局部表现很好，合起来反而更差</p>
+<blockquote>
+<p>A学校，B学校<br>A学校的各个学院 的女生比例 都高于 B学校<br>统计整个学校，B学校女生比例高于A学校<br>原因是因为，两个学校的不同学院之间，人数不同</p>
+</blockquote>
+<h1 id="5-为什么人们往往不愿意承担风险"><a href="#5-为什么人们往往不愿意承担风险" class="headerlink" title="5. 为什么人们往往不愿意承担风险"></a>5. 为什么人们往往不愿意承担风险</h1><blockquote>
+<p>经济学：收入本身并不重要，收入带来的好处，或者幸福感，满足感</p>
+</blockquote>
+<p>收入的边际效用是递减的。（收入每增加一个单位，带来的额外效用减小）</p>
+<p>若一个人认为收入的边际效用是递减的，则这个人是一个风险规避者。对于期望收入相同的两件事，他更愿意做封校更小的一件。<br>风险规避者甚至有可能通过减少自己的收入来避免可能的风险</p>
+<h1 id="6-消费税"><a href="#6-消费税" class="headerlink" title="6.消费税"></a>6.消费税</h1><blockquote>
+<p>曼昆 《经济学原理》 — 经济学领域最经典教材之一</p>
+</blockquote>
+<p>政府向消费者征税，买方消费欲望降低，购买力下降，导致卖方的供给也会变低，达到新的平衡。因此，消费税是由消费者和卖家共同承担的。<br>政府向卖家征税也是同样道理。</p>
+<h3 id="奢侈品"><a href="#奢侈品" class="headerlink" title="奢侈品"></a>奢侈品</h3><blockquote>
+<p>买奢侈品的都是富人，因此向消费者征税<br>奢侈品非生活必须品，价格升高，大量消费者退出市场<br>奢侈品供给曲线非常陡，即使价格变化很大，产量仍然变化不大，因为制造奢侈品需要很多时间，人力。生产商无法快速应对市场需求变化。<br>虽然向买方征税，税多数由生产者承担。与政府决策适得其反</p>
+</blockquote>
+<p>向消费者征税，与向生产者征税的效果完全一样。（最终，生产者承担税费，与消费者承担税费都相同）（供需曲线都是直线时，可以从数学上证明此结论）</p>
+<h1 id="7-价格里的阴谋"><a href="#7-价格里的阴谋" class="headerlink" title="7. 价格里的阴谋"></a>7. 价格里的阴谋</h1><h3 id="价格歧视"><a href="#价格歧视" class="headerlink" title="价格歧视"></a>价格歧视</h3><p>为不同消费者制定不同价格的策略</p>
+<p>对于一个恶汉来说，第一个烧饼的价值显然比第七个烧饼的价值更高。<br>同样，工资提高事，针对等额的提升度，工资低的所带来的价值更高<br>同等金额，对于穷人和富人的价值不同。</p>
+<h3 id="二级价格歧视"><a href="#二级价格歧视" class="headerlink" title="二级价格歧视"></a>二级价格歧视</h3><p>让高端消费者自动选择高价位商品的定价策略</p>
+<p>想办法拉大高端套餐和低端套餐的差距，可以向高端用户收取更高的费用。<br>一个有趣的现象：让低端产品更低端，反而会增大生产商的收益。</p>
+<p>二级价格歧视理论 产生的奇怪现象：<br>快递：次日达，隔日达，普通到达。同一天寄出的商品，也都是同一天到达，隔日达的商品会在仓库中存一天（为了区分不同档次的产品，商家有意设置低端消费品）<br>IBM曾研发让打印机慢速打印的设备<br>飞机，头等舱，经济舱都是同样的原理</p>
+<h3 id="三级价格歧视"><a href="#三级价格歧视" class="headerlink" title="三级价格歧视"></a>三级价格歧视</h3><p>直接给商品提供不同的价格。</p>
+<p>明显三级价格歧视：</p>
+<ul>
+<li>学生证半价；</li>
+<li>同一商品，不同省份价格不同；</li>
+<li>高速公路对不同车型收费不同等。</li>
+</ul>
+<p>隐蔽的三级价格歧视：</p>
+<ul>
+<li>狡诈的电商网站，点击“从高到低排序”，会给出更高的价格；</li>
+<li>优惠券；30%的人会保留使用，70%弄丢或过期。区分了不同用户，相当于为对价格比较敏感的低端用户提供了优惠</li>
+<li>邮寄回扣，吧收据，反馈卡，回扣申请表等寄回厂家。国外电子产品较常见</li>
+</ul>
+<p>游乐园，火车票，电影票不大能分出消费者等级。因此二级价格歧视无效，多使用三级价格歧视</p>
+<h3 id="两部分定价"><a href="#两部分定价" class="headerlink" title="两部分定价"></a>两部分定价</h3><p>入场费 + 消费的费用<br>游乐场，酒吧常用此方式。会员入会费，信用卡年费，手机月租费等</p>
+<h3 id="捆绑销售"><a href="#捆绑销售" class="headerlink" title="捆绑销售"></a>捆绑销售</h3><blockquote>
+<p>不一定总是适用。<br>适用场景；不同买家对捆绑的商品具有不同的偏好</p>
+</blockquote>
+<p>word，excel，ppt捆绑销售</p>
+<p>维基百科上“pricing strategies”, 共有20多种定价策略<br>link : <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Pricing_strategies">https://en.wikipedia.org/wiki/Pricing_strategies</a><br>终极目的都是一致的：尽可能从消费者身上赚取更多利润</p>
+<h1 id="8-公用品的悲剧"><a href="#8-公用品的悲剧" class="headerlink" title="8.公用品的悲剧"></a>8.公用品的悲剧</h1><p>类似于囚徒困境的原理</p>
+<p>对单个用户来讲，做比不做带来更大收益，都选择做</p>
+<ul>
+<li>挤公交：对等公交的人，能挤上比挤不上收益更大</li>
+<li>企业污染环境：排放污水降低开销，污染环境的代价由全体承担，均摊到自己很少，所以要污染环境</li>
+<li>车祸越离奇，堵车越严重，即使车祸没挡住路。司机会观看车祸，甚至拍照等，对车祸现场的司机来说，观看车祸的收益，比自己登上一分钟收益更大，导致后面的车辆都要多等一分钟</li>
+</ul>
+<h1 id="10-公平分割"><a href="#10-公平分割" class="headerlink" title="10.公平分割"></a>10.公平分割</h1><h3 id="均衡分割"><a href="#均衡分割" class="headerlink" title="均衡分割"></a>均衡分割</h3><p>两个人分：你来分，我来选。（分的人，收益是一半，选的人收益可能超过一半）</p>
+<p>多个人分，假设4个人。分割过程：</p>
+<ul>
+<li>选两人，你来分，我来选（共两份）</li>
+<li>让这两个人把各自手中的蛋糕分成3份（共2*3&#x3D;6份），让第3个人从2人中各选一份</li>
+<li>这3个人把各自手中蛋糕分成4份（共3*4份），让第4个人从3人手中各选1份</li>
+<li>分割结束，每个人得到自己手中的蛋糕份额</li>
+</ul>
+<p>最后削减人算法：</p>
+<ul>
+<li>第1个人，从蛋糕中切出他所认为的1&#x2F;n, 交给第2个人。</li>
+<li>第2个人也可从中切出一小块，交给第3个人，</li>
+<li>依次类推，每个人拿到蛋糕后都有一次修剪机会，然后移交给下一个人，最后一个修剪蛋糕的人将获得这块蛋糕</li>
+<li>余下的n-1个人从头开始重复这个过程</li>
+</ul>
+<h3 id="免嫉妒分割"><a href="#免嫉妒分割" class="headerlink" title="免嫉妒分割"></a>免嫉妒分割</h3><p>免嫉妒分割比均衡分割更强的要求。免嫉妒分割一定也满足均衡分割。<br>蛋糕上有说过，巧克力，奶油等，每个人认为的价值不一样，有人爱吃水果，有人爱吃巧克力。构造出免嫉妒的分割方案非常困难。</p>
+<p>3人免嫉妒分割方案：</p>
+<ul>
+<li>A,B,C 3人，A把蛋糕3等分（按价值等分，当然是按照A的价值标准分割）</li>
+<li>B若认为3块中，较大的两块一样大，则按照C,B,A的顺序选蛋糕，问题解决；B若认为较大的两块不一样大，则B把较大一块切下一部分，使其跟第二大的蛋糕一样大，按照C,B,A顺序选取，但有个限制，若C没选被修剪的蛋糕，B必须选它。</li>
+<li>此时，每人都分得一份蛋糕。被修剪蛋糕在B或C手中。C第一个选，不会妒忌别人；B选取了两个较大块中的一个，也不会妒忌别人，A是分蛋糕的，也不会妒忌别人。</li>
+<li>还剩一小块，进入分割流程第二轮</li>
+<li>被修剪蛋糕在B或C手中。X表示拿到修剪蛋糕的人，B,C中未拿到修剪蛋糕的用Y表示，A还用A表示。</li>
+<li>Y切分，X，A，Y的顺序取。第二轮结束。</li>
+<li>X第一个取，不会妒忌别人；A在第一轮已经拿到了足够的价值，即使不参与第二轮，也不会妒忌别人；Y是分蛋糕的，也不会妒忌别人。</li>
+<li>分割结束，所有人都不会妒忌别人</li>
+</ul>
+<p>以上方法，只适合3个人的情况，对于人数更多的情况，数学家还没有找到一个比较可行的方案</p>
+<h1 id="数学之美"><a href="#数学之美" class="headerlink" title="数学之美"></a>数学之美</h1><h3 id="幻方"><a href="#幻方" class="headerlink" title="幻方"></a>幻方</h3><table>
+<thead>
+<tr>
+<th>8</th>
+<th>1</th>
+<th>6</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>3</td>
+<td>5</td>
+<td>7</td>
+</tr>
+<tr>
+<td>4</td>
+<td>9</td>
+<td>2</td>
+</tr>
+</tbody></table>
+<p>$$816^2 + 357^2 + 492^2 &#x3D; 618^2 + 753^2 + 294^2$$<br>所有幻方均满足上述性质</p>
+<h3 id="欧拉恒等式"><a href="#欧拉恒等式" class="headerlink" title="欧拉恒等式"></a>欧拉恒等式</h3><p>$$e^{\pi i} + 1 &#x3D; 0$$</p>
+<p>三角形一共发现有5000多个心，目前数目还在不断增加<br>任意给定两个面积相等的多边形，它们之间都可以通过剪拼得到<br>俄罗斯方块可以永远玩下去吗？ —- <strong>不能</strong></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2017/06/01/THINKING-OF-FUN_reading_notes/" data-id="cm6lwewrk00034q9j3v4q8cxl" data-title="思考的乐趣-读书笔记" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2017/07/08/jvm/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">前一篇</strong>
+      <div class="article-nav-title">
+        
+          JVM 简介
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2017/05/04/HashMap/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">后一篇</strong>
+      <div class="article-nav-title">HashMap工作原理</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">归档</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2022/07/">七月 2022</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/11/">十一月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/10/">十月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/06/">六月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/05/">五月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">三月 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">二月 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/09/">九月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/08/">八月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/07/">七月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/06/">六月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/05/">五月 2017</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">最新文章</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2022/07/03/flink-keygroup-dataskew/">Flink KeyGroup机制导致的数据倾斜问题</a>
+          </li>
+        
+          <li>
+            <a href="/2019/11/10/standby_gc/">生产环镜Standby NameNode GC严重问题记录</a>
+          </li>
+        
+          <li>
+            <a href="/2019/10/19/kubernetes-install/">使用kubeadm创建kubernetes单主集群 - ubuntu</a>
+          </li>
+        
+          <li>
+            <a href="/2019/06/13/jvm-docker/">jvm improve docker container detection and resource configuration usage</a>
+          </li>
+        
+          <li>
+            <a href="/2019/05/23/distribute_theory/">分布式系统相关理论</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2025 Bamboo Liu<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>

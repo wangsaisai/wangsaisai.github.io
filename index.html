@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>Bamboo Liu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta property="og:type" content="website">
+<meta property="og:title" content="Bamboo Liu">
+<meta property="og:url" content="http://example.com/index.html">
+<meta property="og:site_name" content="Bamboo Liu">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:author" content="Bamboo Liu">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/atom.xml" title="Bamboo Liu" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Bamboo Liu</a>
+      </h1>
+      
+        <h2 id="subtitle-wrap">
+          <a href="/" id="subtitle">A blog of learn, reading, thinking, AI...</a>
+        </h2>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/atom.xml" title="RSS 订阅"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="搜索"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="搜索"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://example.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main">
+  
+    <article id="post-flink-keygroup-dataskew" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2022/07/03/flink-keygroup-dataskew/" class="article-date">
+  <time class="dt-published" datetime="2022-07-02T16:00:00.000Z" itemprop="datePublished">2022-07-03</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="p-name article-title" href="/2022/07/03/flink-keygroup-dataskew/">Flink KeyGroup机制导致的数据倾斜问题</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <h1 id="Flink-KeyGroup机制导致的数据倾斜问题"><a href="#Flink-KeyGroup机制导致的数据倾斜问题" class="headerlink" title="Flink KeyGroup机制导致的数据倾斜问题"></a>Flink KeyGroup机制导致的数据倾斜问题</h1><h3 id="业务背景"><a href="#业务背景" class="headerlink" title="业务背景"></a>业务背景</h3><p>数据源位于Kafka中，将相同Key的数据聚合成Batch，写入HBase中.</p>
+<p>即：kafka(sourceStream) –&gt; keyby(batch) –&gt; hbase(sink)</p>
+<p>核心代码如下</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">sourceStream</span><br><span class="line">    .keyBy(CustomerData::getCustomerKey)</span><br><span class="line">    .process(<span class="keyword">new</span> <span class="title class_">CustomerKeyedProcessFunction</span>())</span><br><span class="line">    .returns(CustomerBatch.class)</span><br><span class="line">    .addSink(hbaseSink);</span><br></pre></td></tr></table></figure>
+
+<p>使用Flink版本：1.13.2</p>
+<h3 id="数据倾斜现象"><a href="#数据倾斜现象" class="headerlink" title="数据倾斜现象"></a>数据倾斜现象</h3><p>测试Case：Flink并发度：180，SubTask高低倾斜率约为216:144 &#x3D; 3：2</p>
+        
+          <p class="article-more-link">
+            <a href="/2022/07/03/flink-keygroup-dataskew/#more">Read More</a>
+          </p>
+        
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2022/07/03/flink-keygroup-dataskew/" data-id="cm6lwewrl00054q9jclj155fr" data-title="Flink KeyGroup机制导致的数据倾斜问题" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+
+  
+    <article id="post-standby_gc" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2019/11/10/standby_gc/" class="article-date">
+  <time class="dt-published" datetime="2019-11-09T16:00:00.000Z" itemprop="datePublished">2019-11-10</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="p-name article-title" href="/2019/11/10/standby_gc/">生产环镜Standby NameNode GC严重问题记录</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <p>HDFS集群正常运行了将近一年，最近两个月出现一个诡异的问题：Standby节点严重的GC，Active节点正常。虽然不影响线上业务，但潜在的问题还是比较严重的，这里简单整理下问题定位和解决过程。</p>
+<h1 id="一、问题描述"><a href="#一、问题描述" class="headerlink" title="一、问题描述"></a>一、问题描述</h1><p>HDFS版本：2.5.2 （问题与版本无关）</p>
+<p>HDFS的active节点正常，Standby节点严重GC</p>
+<h1 id="二、集群的情况："><a href="#二、集群的情况：" class="headerlink" title="二、集群的情况："></a>二、集群的情况：</h1><p>HDFS集群数据量在几百TB，Namespace和Block数量在千万级别，每天增长大约几十GB的数据量。Namespace和Block的信息消耗的内存会略微有部分增长，但不会发生太大变化。</p>
+<h1 id="三、问题分析"><a href="#三、问题分析" class="headerlink" title="三、问题分析"></a>三、问题分析</h1><p>问题最诡异的地方在于，Standby节点GC异常，但Active节点GC正常。</p>
+<p>HDFS的内存主要消耗是Namespace和Block信息。这些信息是常住内存的，不会发生太大变动。<br>一般来讲，Active节点的任务量要超过Standby节点，但由于内存主要消耗在Namespace和Block信息，Namespace和Block信息在Active&#x2F;Standby节点是完全一致的，所以两个节点的内存消耗应该接近，Active节点略微比Standby节点多消耗一些内存。</p>
+        
+          <p class="article-more-link">
+            <a href="/2019/11/10/standby_gc/#more">Read More</a>
+          </p>
+        
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2019/11/10/standby_gc/" data-id="cm6lwewrr000c4q9j5su549j2" data-title="生产环镜Standby NameNode GC严重问题记录" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+
+  
+    <article id="post-kubernetes-install" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2019/10/19/kubernetes-install/" class="article-date">
+  <time class="dt-published" datetime="2019-10-18T16:00:00.000Z" itemprop="datePublished">2019-10-19</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="p-name article-title" href="/2019/10/19/kubernetes-install/">使用kubeadm创建kubernetes单主集群 - ubuntu</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <h1 id="use-kubeadmin-install-k8s-in-ubuntu"><a href="#use-kubeadmin-install-k8s-in-ubuntu" class="headerlink" title="use kubeadmin install k8s in ubuntu"></a>use kubeadmin install k8s in ubuntu</h1><h3 id="准备环境"><a href="#准备环境" class="headerlink" title="准备环境"></a>准备环境</h3><ul>
+<li>至少2台机器或虚拟机（一个master，多个worker）</li>
+<li>每台机器 2 GB 内存或更多</li>
+<li>每台机器 2 CPU 核心或更多</li>
+<li>集群中的所有机器的网络彼此均能相互连接(公网和内网都可以)</li>
+<li>禁用 Swap 交换分区</li>
+</ul>
+        
+          <p class="article-more-link">
+            <a href="/2019/10/19/kubernetes-install/#more">Read More</a>
+          </p>
+        
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2019/10/19/kubernetes-install/" data-id="cm6lwewrq000b4q9j1aq47mui" data-title="使用kubeadm创建kubernetes单主集群 - ubuntu" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+
+  
+    <article id="post-jvm-docker" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2019/06/13/jvm-docker/" class="article-date">
+  <time class="dt-published" datetime="2019-06-12T16:00:00.000Z" itemprop="datePublished">2019-06-13</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="p-name article-title" href="/2019/06/13/jvm-docker/">jvm improve docker container detection and resource configuration usage</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <h3 id="background"><a href="#background" class="headerlink" title="background"></a>background</h3><p>Java startup normally queries the operating system in order to setup runtime defaults for things such as the number of GC threads and default memory limits.</p>
+<p>While in docker container, JVM can’t get the resource limit info.</p>
+<p>This problem had been fixed in JDK8:8u191</p>
+<p>This article make a test for the new feature</p>
+        
+          <p class="article-more-link">
+            <a href="/2019/06/13/jvm-docker/#more">Read More</a>
+          </p>
+        
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2019/06/13/jvm-docker/" data-id="cm6lwewro00094q9jcuc770zo" data-title="jvm improve docker container detection and resource configuration usage" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+
+  
+    <article id="post-distribute_theory" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2019/05/23/distribute_theory/" class="article-date">
+  <time class="dt-published" datetime="2019-05-22T16:00:00.000Z" itemprop="datePublished">2019-05-23</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="p-name article-title" href="/2019/05/23/distribute_theory/">分布式系统相关理论</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <h3 id="CAP理论"><a href="#CAP理论" class="headerlink" title="CAP理论"></a>CAP理论</h3><p>2000年7月，加州大学伯克利分校的Eric Brewer教授在ACM PODC会议上提出CAP猜想。2年后，麻省理工学院的Seth Gilbert和Nancy Lynch从理论上证明了CAP。之后，CAP理论正式成为分布式计算领域的公认定理。 </p>
+<p>CAP理论为：一个分布式系统最多只能同时满足一致性（Consistency）、可用性（Availability）和分区容错性（Partition tolerance）这三项中的两项。 </p>
+        
+          <p class="article-more-link">
+            <a href="/2019/05/23/distribute_theory/#more">Read More</a>
+          </p>
+        
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2019/05/23/distribute_theory/" data-id="cm6lwewrk00044q9jf0bod1s1" data-title="分布式系统相关理论" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+
+  
+    <article id="post-Stephen_William_Hawking" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2018/03/18/Stephen_William_Hawking/" class="article-date">
+  <time class="dt-published" datetime="2018-03-17T16:00:00.000Z" itemprop="datePublished">2018-03-18</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="p-name article-title" href="/2018/03/18/Stephen_William_Hawking/">《大设计》读书笔记 -- 致敬霍金</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <p>本书的主题是：理解生命，万物和宇宙的存在。 凝结了作者对科学和哲学的探索成果，以及对这些学科的未来展望。</p>
+<h1 id="存在之谜"><a href="#存在之谜" class="headerlink" title="存在之谜"></a>存在之谜</h1><h3 id="生命，宇宙和万物的终极问题"><a href="#生命，宇宙和万物的终极问题" class="headerlink" title="生命，宇宙和万物的终极问题:"></a>生命，宇宙和万物的终极问题:</h3><ul>
+<li><p>为什么存在实在之物，而非一无所有？ </p>
+</li>
+<li><p>我们为什么存在？ </p>
+</li>
+<li><p>为什么是这一族特定的定律而非别的？</p>
+</li>
+</ul>
+<h1 id="定律制约"><a href="#定律制约" class="headerlink" title="定律制约"></a>定律制约</h1><p>古人对自然方式的无知，导致他们发明神。神高兴时，人类便享受好天气，和平，并免于自然灾害和疾病；当他们不高兴时，干旱，战争，瘟疫和传染病就降临人间。</p>
+<p>大约2600年前，米利都的泰勒斯（约公元前624年－约公元前546年，古希腊时期的哲学家和科学家，希腊七贤之一，被后人称为“科学和哲学之祖”）抛弃了神话，通过理性假说来解释自然现象。</p>
+<p>泰勒斯的家是名叫爱奥尼亚地区的知识者中心之一，古代爱奥尼亚的学者是最早通过自然定律而非神学来解释自然现象的人，是人类思想史上的一座巨大的里程碑。</p>
+<p>自然遵循着一致的可被解释的原则的思想产生，开始了利用宇宙概念来取代神权统治的长期过程。</p>
+        
+          <p class="article-more-link">
+            <a href="/2018/03/18/Stephen_William_Hawking/#more">Read More</a>
+          </p>
+        
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2018/03/18/Stephen_William_Hawking/" data-id="cm6lwewrj00024q9j6ob6auzj" data-title="《大设计》读书笔记 -- 致敬霍金" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+
+  
+    <article id="post-java-9-turorial" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2018/02/09/java-9-turorial/" class="article-date">
+  <time class="dt-published" datetime="2018-02-08T16:00:00.000Z" itemprop="datePublished">2018-02-09</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="p-name article-title" href="/2018/02/09/java-9-turorial/">java 9 turorial</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <h2 id="JShell"><a href="#JShell" class="headerlink" title="JShell"></a>JShell</h2><blockquote>
+<p>交互式执行java代码</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">jshell&gt; <span class="type">int</span> a=<span class="number">10</span></span><br><span class="line">a ==&gt; <span class="number">10</span></span><br><span class="line"></span><br><span class="line">jshell&gt; a*<span class="number">7</span>+<span class="number">5</span></span><br><span class="line">$<span class="number">30</span> ==&gt; <span class="number">75</span></span><br><span class="line"></span><br><span class="line">jshell&gt; System.out.println(<span class="string">&quot;hello&quot;</span>)</span><br><span class="line">hello</span><br><span class="line"></span><br><span class="line">jshell&gt; <span class="keyword">void</span> <span class="title function_">method</span><span class="params">(<span class="type">int</span> x, <span class="type">int</span> y)</span> &#123;</span><br><span class="line">   ...&gt;   System.out.println(x+y);</span><br><span class="line">   ...&gt; &#125;</span><br><span class="line">|  已修改 方法 method(<span class="type">int</span>,<span class="type">int</span>)</span><br><span class="line"></span><br><span class="line">jshell&gt; method(<span class="number">10</span>,<span class="number">20</span>);</span><br><span class="line"><span class="number">30</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+        
+          <p class="article-more-link">
+            <a href="/2018/02/09/java-9-turorial/#more">Read More</a>
+          </p>
+        
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2018/02/09/java-9-turorial/" data-id="cm6lwewrn00084q9j86nib86d" data-title="java 9 turorial" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+
+  
+    <article id="post-Intelligent-Age" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2017/09/05/Intelligent-Age/" class="article-date">
+  <time class="dt-published" datetime="2017-09-04T16:00:00.000Z" itemprop="datePublished">2017-09-05</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="p-name article-title" href="/2017/09/05/Intelligent-Age/">智能时代</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <p>大数据与智能革命重新定义未来</p>
+<h1 id="第一章-数据——人类建造文明的基石。"><a href="#第一章-数据——人类建造文明的基石。" class="headerlink" title="第一章 数据——人类建造文明的基石。"></a>第一章 数据——人类建造文明的基石。</h1><blockquote>
+<p>如果把资本和机械动能，作为大航海时代以来全球化的推动力，那么数据正成为下一次技术革命和社会革命的核心动力</p>
+</blockquote>
+<p>数据的最大作用在于承载信息，但并非所有的数据都承载有意义的信息。信息有时藏在事物的背后，需要挖掘和测量才能得到。数据是信息的载体，从数据中挖掘信息</p>
+<p>数据中隐藏的信息和知识是客观存在的，但是只有具有相关领域专业知识的人才才能将它们挖掘出来。对数据和信息进行处理后，人类就可以获得知识。知识比信息更高一个层次，也更加抽象，它具有系统性的特征。</p>
+<p><strong>得到数据和使用数据的能力是衡量文明发展水平的标准之一</strong></p>
+<h3 id="使用数据的标准流程"><a href="#使用数据的标准流程" class="headerlink" title="使用数据的标准流程:"></a>使用数据的标准流程:</h3><p>获取数据 –&gt; 分析数据 –&gt; 建立模型 –&gt; 预测未知</p>
+<p>数据的作用自古有之，但是过去数据的作用经常被忽视。首先，由于过去数据量不足，积累大量的数据所需的时间太长，以至于在较短的时间内，它的作用不明显。其实数据和想获得的信息之间的联系通常是间接的，他要通过不同数据之间的相关性才能体现出来。<strong>可以说相关性是让数据发挥作用的魔棒。</strong></p>
+<p>很多时候我们无法直接获得信息，但是我们可以将相关联信息进行量化，然后通过数学模型间接的得到所要的信息，而<strong>各种数学模型的基础都离不开概率论和统计学</strong></p>
+<blockquote>
+<p>切比雪夫不等式:当样本数足够多时一个随机变量和他的数学期望值之间的误差，可以任意小</p>
+</blockquote>
+<p>模型的选择不是一件容易的事，通常简单的模型未必与真实情况相匹配.</p>
+<blockquote>
+<p>日心说地心说如果一开始模型选的不好，以后修修补补就很困难，因此，在过去无论在理论上还是工程上，大家都把主要的精力放在寻找模型上</p>
+</blockquote>
+<p>有了模型之后，第二步就找到模型的参数，以便让模型至少和以前观察的数据相吻合，这一点在过去的被重视程度远远不如寻找模型。但是今天他又有一个比较时髦而高深的词——<strong>机器学习</strong>。</p>
+<p>鉴于完美模型未必存在，即使存在，找到他也非常不容易，而且费时间，因此就有人考虑能否通过很多简单不完美的模型凑在一起起到完美模型的效果呢？</p>
+<p>这个答案是肯定的，从理论上讲，只要找到足够多的具有代表性的样本，就可以利用数学找到一个模型或一组模型的组合，使得它和真实情况非常接近。</p>
+<p>数据驱动方法的最大优势在于它可以最大程度上得益于计算机技术的进步，尽管数据驱动方法一开始数据量不足，计算能力不够。随着时间推移，摩尔定律保证了计算能力和数据量，以一个指数级增长的速度递增。数据驱动方法可以变得非常正确。相比之下，很多其他方法的改进需要靠理论的突破，因此改进起来周期非常长。</p>
+<h3 id="本章小结"><a href="#本章小结" class="headerlink" title="本章小结"></a>本章小结</h3><p><strong>数据驱动方法是大数据的基础，智能革命的核心，它带来了一种新的思维方式。</strong></p>
+        
+          <p class="article-more-link">
+            <a href="/2017/09/05/Intelligent-Age/#more">Read More</a>
+          </p>
+        
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2017/09/05/Intelligent-Age/" data-id="cm6lwewrh00014q9jaaga7d01" data-title="智能时代" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+
+  
+    <article id="post-future" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2017/08/23/future/" class="article-date">
+  <time class="dt-published" datetime="2017-08-22T16:00:00.000Z" itemprop="datePublished">2017-08-23</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="p-name article-title" href="/2017/08/23/future/">未来简史 - 读书笔记</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <img src="/images/future-2.png" title="future"/>
+        
+          <p class="article-more-link">
+            <a href="/2017/08/23/future/#more">Read More</a>
+          </p>
+        
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2017/08/23/future/" data-id="cm6lwewrm00064q9j6nfghi3m" data-title="未来简史 - 读书笔记" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+
+  
+    <article id="post-humankind-history" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2017/08/17/humankind-history/" class="article-date">
+  <time class="dt-published" datetime="2017-08-16T16:00:00.000Z" itemprop="datePublished">2017-08-17</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="p-name article-title" href="/2017/08/17/humankind-history/">人类简史 - 读书笔记</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <p><img src="/images/human.jpg" alt="图片1" title="human"></p>
+        
+          <p class="article-more-link">
+            <a href="/2017/08/17/humankind-history/#more">Read More</a>
+          </p>
+        
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2017/08/17/humankind-history/" data-id="cm6lwewrn00074q9jd00n6n6c" data-title="人类简史 - 读书笔记" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+
+  
+
+
+  <nav id="page-nav">
+    
+    <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="extend next" rel="next" href="/page/2/">下一页 &raquo;</a>
+  </nav>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">归档</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2022/07/">七月 2022</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/11/">十一月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/10/">十月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/06/">六月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/05/">五月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">三月 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">二月 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/09/">九月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/08/">八月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/07/">七月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/06/">六月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/05/">五月 2017</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">最新文章</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2022/07/03/flink-keygroup-dataskew/">Flink KeyGroup机制导致的数据倾斜问题</a>
+          </li>
+        
+          <li>
+            <a href="/2019/11/10/standby_gc/">生产环镜Standby NameNode GC严重问题记录</a>
+          </li>
+        
+          <li>
+            <a href="/2019/10/19/kubernetes-install/">使用kubeadm创建kubernetes单主集群 - ubuntu</a>
+          </li>
+        
+          <li>
+            <a href="/2019/06/13/jvm-docker/">jvm improve docker container detection and resource configuration usage</a>
+          </li>
+        
+          <li>
+            <a href="/2019/05/23/distribute_theory/">分布式系统相关理论</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2025 Bamboo Liu<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>

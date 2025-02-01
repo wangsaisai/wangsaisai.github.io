@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>HashMap工作原理 | Bamboo Liu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="最近参与公司的实习生招聘工作，面试了几位实习生，我有一道每次面试都必问的题目【HasmMap的工作原理】，但很遗憾，至今还没遇到令我完全满意的回答。今天这篇文章就来回答下HashMap相关的面试题。 1. 什么是HashMap？java.util.HashMap是Java语言标准库中的一个容器类，主要用来存储键值对。是数据结构中哈希表在Java语言的一个实现。 哈希表是数据结构中的一个概念，可以存">
+<meta property="og:type" content="article">
+<meta property="og:title" content="HashMap工作原理">
+<meta property="og:url" content="http://example.com/2017/05/04/HashMap/index.html">
+<meta property="og:site_name" content="Bamboo Liu">
+<meta property="og:description" content="最近参与公司的实习生招聘工作，面试了几位实习生，我有一道每次面试都必问的题目【HasmMap的工作原理】，但很遗憾，至今还没遇到令我完全满意的回答。今天这篇文章就来回答下HashMap相关的面试题。 1. 什么是HashMap？java.util.HashMap是Java语言标准库中的一个容器类，主要用来存储键值对。是数据结构中哈希表在Java语言的一个实现。 哈希表是数据结构中的一个概念，可以存">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2017-05-03T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-02-01T07:54:30.583Z">
+<meta property="article:author" content="Bamboo Liu">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/atom.xml" title="Bamboo Liu" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Bamboo Liu</a>
+      </h1>
+      
+        <h2 id="subtitle-wrap">
+          <a href="/" id="subtitle">A blog of learn, reading, thinking, AI...</a>
+        </h2>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/atom.xml" title="RSS 订阅"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="搜索"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="搜索"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://example.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main"><article id="post-HashMap" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2017/05/04/HashMap/" class="article-date">
+  <time class="dt-published" datetime="2017-05-03T16:00:00.000Z" itemprop="datePublished">2017-05-04</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="p-name article-title" itemprop="headline name">
+      HashMap工作原理
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <p>最近参与公司的实习生招聘工作，面试了几位实习生，我有一道每次面试都必问的题目【HasmMap的工作原理】，但很遗憾，至今还没遇到令我完全满意的回答。今天这篇文章就来回答下HashMap相关的面试题。</p>
+<h2 id="1-什么是HashMap？"><a href="#1-什么是HashMap？" class="headerlink" title="1. 什么是HashMap？"></a>1. 什么是HashMap？</h2><p>java.util.HashMap是Java语言标准库中的一个容器类，主要用来存储键值对。是数据结构中哈希表在Java语言的一个实现。</p>
+<p>哈希表是数据结构中的一个概念，可以存储n个元素，取元素的时间复杂度为O(1).</p>
+<p>一般情况下，从n个元素中查找一个元素，时间复杂度为O(n). 为何哈希表能有O(1)的时间复杂度？</p>
+<p>因为元素在存储时已经大致确定了位置，查找的时候可以定位到对应的位置，因此时间复杂度为O(1).</p>
+<span id="more"></span>
+
+<h2 id="2-HashMap中的数据结构"><a href="#2-HashMap中的数据结构" class="headerlink" title="2. HashMap中的数据结构"></a>2. HashMap中的数据结构</h2><p>HashMap使用数组+链表的方式实现。</p>
+<p>数组的作用主要是定位元素位置。</p>
+<p>链表的作用是解决哈希冲突问题。遇到hash值相等的key，就把相应键值使用链表的方式全部保存下来。</p>
+<h2 id="3-put操作"><a href="#3-put操作" class="headerlink" title="3. put操作"></a>3. put操作</h2><p>put方法定义</p>
+<pre><code>public V put(K key, V value)
+</code></pre>
+<p>put操作执行过程：</p>
+<p>a. 计算key的hashcode</p>
+<p>b. 根据hashcode计算出需要将该键值对存储的位置-即桶的位置</p>
+<p>c. 找到桶的位置后，如果桶未被占用，则存入该键值对；若桶中已有数据，则需要遍历桶中数据，并且比较key的equals方法。遇到key相同的，则用新的value，把旧值替换掉（put操作会将旧值覆盖掉）。若没找到，则将该键值对存储在链表的末尾。</p>
+<h2 id="4-get操作"><a href="#4-get操作" class="headerlink" title="4. get操作"></a>4. get操作</h2><p>get方法定义</p>
+<pre><code>public V get(Object key)
+</code></pre>
+<p>get操作执行过程：</p>
+<p>a. 计算key的hashcode</p>
+<p>b. 根据hashcode，定位该元素所在桶的位置</p>
+<p>c. 若桶为空，则返回null；若桶不空，则遍历桶中数据，比较key的equals方法，若遇到相同的元素，则返回对于的value中；没遇到，则返回null</p>
+<h2 id="5-什么样的类型可以作为HashMap的key？"><a href="#5-什么样的类型可以作为HashMap的key？" class="headerlink" title="5. 什么样的类型可以作为HashMap的key？"></a>5. 什么样的类型可以作为HashMap的key？</h2><p>a. 重写hashCode() 和 equals() 方法</p>
+<p>HashMap在get&#x2F;put数据时，需要调用hashCode() 和 equals() 方法，因此只有重写了hashCode() 和 equals() 方法的类，才可以作为HashMap的key。</p>
+<p>（hashCode相同，对象不一定相等；对象相等，则hashCode必然相同）</p>
+<p>b. 不可变性</p>
+<p>不可变性也是必要的，若元素可变，则相应hashCode也会发生变化，调用get()方法时，可能找不到相应的value，甚至可能找到错误的value。</p>
+<h2 id="6-如何计算数组下标"><a href="#6-如何计算数组下标" class="headerlink" title="6. 如何计算数组下标"></a>6. 如何计算数组下标</h2><p>在JDK1.8之前的版本中，是通过key的hashCode()进行hashing，然后将( n-1 &amp; hash)来确定数组下标，即桶的位置。</p>
+<p>在JDK1.8版本，将hash值的高16位与低16位进行异或</p>
+<p>JDK 1.8：</p>
+<pre><code>(h = key.hashCode()) ^ (h &gt;&gt;&gt;16)
+</code></pre>
+<p>这样做的目的主要是为了减少哈希冲突的可能性。特别是数据量较小时，旧的计算方式哈希冲突的可能比较大。</p>
+<h2 id="7-HashMap的两个重要概念"><a href="#7-HashMap的两个重要概念" class="headerlink" title="7. HashMap的两个重要概念"></a>7. HashMap的两个重要概念</h2><p>容量(Capacity)，即HashMap中数组的大小，也是桶的个数</p>
+<p>负载因子(load factor)，也成装载因子 &#x3D; hashmap中实际保存键值对个数 &#x2F; hashmap中数组的大小</p>
+<p>随着HashMap中元素个数的增多，负载因子增大。如果不做额外的处理，则桶中的链表会越来越长，因此HashMap就无法保证取元素时O(1)的时间复杂度。因此，必须要调整HashMap中数组的大小</p>
+<p>HashMap中定义的默认负载因子大小为0.75，当负载因子大于该值时，将对数组进行扩容</p>
+<h2 id="8-HashMap其他面试题"><a href="#8-HashMap其他面试题" class="headerlink" title="8. HashMap其他面试题"></a>8. HashMap其他面试题</h2><p>HashMap与HashTable区别：Hashtable中加入了锁，线程安全；HashMap线程不安全。也正因为Hashtable中加入了锁，导致性能上要差于HashMap。</p>
+<p>ConcurrentHashMap：HashMap、Hashtable在性能和安全性上的一个折中方案。实现原理是ConcurrentHashMap中将Map划分为多个子Map，子Map分别加锁。对一个子Map加锁以后，不影响对其他子Map的访问。</p>
+<h2 id="9-为什么要面试这道题目"><a href="#9-为什么要面试这道题目" class="headerlink" title="9. 为什么要面试这道题目"></a>9. 为什么要面试这道题目</h2><p>a. 考察求职者技术水平.</p>
+<p>我一把把这道题目作为第一道面试题来考察求职者。根据回答情况，能大致推测到求职者的水平，方便后续的面试。</p>
+<p>零级水平：完全不知道。（当然，这种可能性很少。毕竟HashMap是非常常用的一个工具类）</p>
+<p>一级水平：可以回答HashMap的时间复杂度，容量，装载因子等概念</p>
+<p>二级水平：回答出get&#x2F;put操作的完整过程。（多数求职者都没能完整的回答这个问题。能完全回答出这个问题，说明求职者对哈希的思想有完整的理解，而且很可能阅读过HashMap的源码 - 要想写好代码，首先要阅读优秀源代码的习惯）</p>
+<p>三级水平：回答出hashCode，equals作用，不可变性，线程安全的Map（基本上满足公司实习生的要求，可以发offer了）</p>
+<p>b. 考察求职者表达能力</p>
+<p>能够把一件复杂的事情讲的清晰易懂，是件了不起的能力。（笔者在这方面能力有所欠佳）</p>
+<hr>
+<p>注：</p>
+<p>HashMap中其实允许null作为key，因为在get&#x2F;put操作时都会对null值做特殊的处理。</p>
+<p>本文主要是从哈希表的角度来讲述HashMap，因此这些细节问题并未涉及。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2017/05/04/HashMap/" data-id="cm6lwewrc00004q9jb5e9d1ql" data-title="HashMap工作原理" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2017/06/01/THINKING-OF-FUN_reading_notes/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">前一篇</strong>
+      <div class="article-nav-title">
+        
+          思考的乐趣-读书笔记
+        
+      </div>
+    </a>
+  
+  
+</nav>
+
+  
+</article>
+
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">归档</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2022/07/">七月 2022</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/11/">十一月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/10/">十月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/06/">六月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/05/">五月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">三月 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">二月 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/09/">九月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/08/">八月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/07/">七月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/06/">六月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/05/">五月 2017</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">最新文章</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2022/07/03/flink-keygroup-dataskew/">Flink KeyGroup机制导致的数据倾斜问题</a>
+          </li>
+        
+          <li>
+            <a href="/2019/11/10/standby_gc/">生产环镜Standby NameNode GC严重问题记录</a>
+          </li>
+        
+          <li>
+            <a href="/2019/10/19/kubernetes-install/">使用kubeadm创建kubernetes单主集群 - ubuntu</a>
+          </li>
+        
+          <li>
+            <a href="/2019/06/13/jvm-docker/">jvm improve docker container detection and resource configuration usage</a>
+          </li>
+        
+          <li>
+            <a href="/2019/05/23/distribute_theory/">分布式系统相关理论</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2025 Bamboo Liu<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>

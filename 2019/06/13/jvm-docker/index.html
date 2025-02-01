@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>jvm improve docker container detection and resource configuration usage | Bamboo Liu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="backgroundJava startup normally queries the operating system in order to setup runtime defaults for things such as the number of GC threads and default memory limits. While in docker container, JVM ca">
+<meta property="og:type" content="article">
+<meta property="og:title" content="jvm improve docker container detection and resource configuration usage">
+<meta property="og:url" content="http://example.com/2019/06/13/jvm-docker/index.html">
+<meta property="og:site_name" content="Bamboo Liu">
+<meta property="og:description" content="backgroundJava startup normally queries the operating system in order to setup runtime defaults for things such as the number of GC threads and default memory limits. While in docker container, JVM ca">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2019-06-12T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-02-01T07:54:30.586Z">
+<meta property="article:author" content="Bamboo Liu">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/atom.xml" title="Bamboo Liu" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Bamboo Liu</a>
+      </h1>
+      
+        <h2 id="subtitle-wrap">
+          <a href="/" id="subtitle">A blog of learn, reading, thinking, AI...</a>
+        </h2>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/atom.xml" title="RSS 订阅"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="搜索"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="搜索"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://example.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main"><article id="post-jvm-docker" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2019/06/13/jvm-docker/" class="article-date">
+  <time class="dt-published" datetime="2019-06-12T16:00:00.000Z" itemprop="datePublished">2019-06-13</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="p-name article-title" itemprop="headline name">
+      jvm improve docker container detection and resource configuration usage
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <h3 id="background"><a href="#background" class="headerlink" title="background"></a>background</h3><p>Java startup normally queries the operating system in order to setup runtime defaults for things such as the number of GC threads and default memory limits.</p>
+<p>While in docker container, JVM can’t get the resource limit info.</p>
+<p>This problem had been fixed in JDK8:8u191</p>
+<p>This article make a test for the new feature</p>
+<span id="more"></span>
+
+<h3 id="VM-info"><a href="#VM-info" class="headerlink" title="VM info"></a>VM info</h3><blockquote>
+<p>a linux vm in google cloud, with 6 vCPUS, 20GB memory</p>
+</blockquote>
+<h3 id="Test-In-VM"><a href="#Test-In-VM" class="headerlink" title="Test In VM"></a>Test In VM</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">bamboo@privacy:~$ free -g</span><br><span class="line">total used free shared buff/cache available</span><br><span class="line">Mem: 19 6 0 0 13 12</span><br><span class="line">Swap: 0 0 0</span><br><span class="line">bamboo@privacy:~$ <span class="built_in">cat</span> /proc/cpuinfo| grep <span class="string">&quot;processor&quot;</span>| <span class="built_in">wc</span> -l</span><br><span class="line">6</span><br><span class="line">bamboo@privacy:~$ java -version</span><br><span class="line">java version <span class="string">&quot;1.8.0_171&quot;</span></span><br><span class="line">Java(TM) SE Runtime Environment (build 1.8.0_171-b11)</span><br><span class="line">Java HotSpot(TM) 64-Bit Server VM (build 25.171-b11, mixed mode)</span><br><span class="line">bamboo@privacy:~$ java -XX:+PrintFlagsFinal | grep -E <span class="string">&#x27;InitialHeapSize|MaxHeapSize&#x27;</span></span><br><span class="line">uintx InitialHeapSize := 329252864 &#123;product&#125;</span><br><span class="line">uintx MaxHeapSize := 5263851520 &#123;product&#125;</span><br><span class="line">bamboo@privacy:~$ java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</span><br><span class="line">uintx ParallelGCThreads = 6 &#123;product&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="Test-in-docker-container-openjdk-8u181-without-resource-limit"><a href="#Test-in-docker-container-openjdk-8u181-without-resource-limit" class="headerlink" title="Test in docker container (openjdk:8u181) without resource limit"></a>Test in docker container (openjdk:8u181) without resource limit</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">bamboo@privacy:~$ docker run -ti openjdk:8u181-jdk</span><br><span class="line">root@c559e42aeae2:/# free -g</span><br><span class="line">total used free shared buff/cache available</span><br><span class="line">Mem: 19 6 0 0 12 12</span><br><span class="line">Swap: 0 0 0</span><br><span class="line">root@c559e42aeae2:/# <span class="built_in">cat</span> /proc/cpuinfo| grep <span class="string">&quot;processor&quot;</span>| <span class="built_in">wc</span> -l</span><br><span class="line">6</span><br><span class="line">root@c559e42aeae2:/# java -version</span><br><span class="line">openjdk version <span class="string">&quot;1.8.0_181&quot;</span></span><br><span class="line">OpenJDK Runtime Environment (build 1.8.0_181-8u181-b13-2~deb9u1-b13)</span><br><span class="line">OpenJDK 64-Bit Server VM (build 25.181-b13, mixed mode)</span><br><span class="line">root@c559e42aeae2:/# java -XX:+PrintFlagsFinal | grep -E <span class="string">&#x27;InitialHeapSize|MaxHeapSize&#x27;</span></span><br><span class="line">uintx InitialHeapSize := 329252864 &#123;product&#125;</span><br><span class="line">uintx MaxHeapSize := 5263851520 &#123;product&#125;</span><br><span class="line">root@c559e42aeae2:/# java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</span><br><span class="line">uintx ParallelGCThreads = 6 &#123;product&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="Test-in-docker-container-openjdk-8u181-with-resource-limit"><a href="#Test-in-docker-container-openjdk-8u181-with-resource-limit" class="headerlink" title="Test in docker container (openjdk:8u181) with resource limit"></a>Test in docker container (openjdk:8u181) with resource limit</h3><blockquote>
+<p>8G memory, 2 cpus</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">bamboo@privacy:~$ docker run -it --cpus 2 -m 8g openjdk:8u181-jdk bash</span><br><span class="line">root@5d34cdeb3d5c:/#</span><br><span class="line">root@5d34cdeb3d5c:/# free -g</span><br><span class="line">total used free shared buff/cache available</span><br><span class="line">Mem: 19 6 0 0 12 12</span><br><span class="line">Swap: 0 0 0</span><br><span class="line">root@5d34cdeb3d5c:/# <span class="built_in">cat</span> /proc/cpuinfo| grep <span class="string">&quot;processor&quot;</span>| <span class="built_in">wc</span> -l</span><br><span class="line">6</span><br><span class="line">root@5d34cdeb3d5c:/# java -version</span><br><span class="line">openjdk version <span class="string">&quot;1.8.0_181&quot;</span></span><br><span class="line">OpenJDK Runtime Environment (build 1.8.0_181-8u181-b13-2~deb9u1-b13)</span><br><span class="line">OpenJDK 64-Bit Server VM (build 25.181-b13, mixed mode)</span><br><span class="line">root@5d34cdeb3d5c:/# java -XX:+PrintFlagsFinal | grep -E <span class="string">&#x27;InitialHeapSize|MaxHeapSize&#x27;</span></span><br><span class="line">uintx InitialHeapSize := 329252864 &#123;product&#125;</span><br><span class="line">uintx MaxHeapSize := 5263851520 &#123;product&#125;</span><br><span class="line">root@5d34cdeb3d5c:/# java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</span><br><span class="line">uintx ParallelGCThreads = 6 &#123;product&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="Test-in-docker-container-openjdk-8u212-without-resource-limit"><a href="#Test-in-docker-container-openjdk-8u212-without-resource-limit" class="headerlink" title="Test in docker container (openjdk:8u212) without resource limit"></a>Test in docker container (openjdk:8u212) without resource limit</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">bamboo@privacy:~$ docker run -ti openjdk:8u212-jdk</span><br><span class="line">root@9fd6c496e060:/# free -g</span><br><span class="line">total used free shared buff/cache available</span><br><span class="line">Mem: 19 6 0 0 12 12</span><br><span class="line">Swap: 0 0 0</span><br><span class="line">root@9fd6c496e060:/# <span class="built_in">cat</span> /proc/cpuinfo| grep <span class="string">&quot;processor&quot;</span>| <span class="built_in">wc</span> -l</span><br><span class="line">6</span><br><span class="line">root@9fd6c496e060:/# java -version</span><br><span class="line">openjdk version <span class="string">&quot;1.8.0_212&quot;</span></span><br><span class="line">OpenJDK Runtime Environment (build 1.8.0_212-b04)</span><br><span class="line">OpenJDK 64-Bit Server VM (build 25.212-b04, mixed mode)</span><br><span class="line">root@9fd6c496e060:/# java -XX:+PrintFlagsFinal | grep -E <span class="string">&#x27;InitialHeapSize|MaxHeapSize&#x27;</span></span><br><span class="line">uintx InitialHeapSize := 329252864 &#123;product&#125;</span><br><span class="line">uintx MaxHeapSize := 5263851520 &#123;product&#125;</span><br><span class="line">root@9fd6c496e060:/# java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</span><br><span class="line">uintx ParallelGCThreads = 6 &#123;product&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="Test-in-docker-container-openjdk-8u212-with-resource-limit"><a href="#Test-in-docker-container-openjdk-8u212-with-resource-limit" class="headerlink" title="Test in docker container (openjdk:8u212) with resource limit"></a>Test in docker container (openjdk:8u212) with resource limit</h3><blockquote>
+<p>8G memory, 2 cpus</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">bamboo@privacy:~$ docker run -it --cpus 2 -m 8g openjdk:8u212-jdk bash</span><br><span class="line">root@6e90872b448b:/# free -g</span><br><span class="line">total used free shared buff/cache available</span><br><span class="line">Mem: 19 6 0 0 12 12</span><br><span class="line">Swap: 0 0 0</span><br><span class="line">root@6e90872b448b:/# <span class="built_in">cat</span> /proc/cpuinfo| grep <span class="string">&quot;processor&quot;</span>| <span class="built_in">wc</span> -l</span><br><span class="line">6</span><br><span class="line">root@6e90872b448b:/# java -version</span><br><span class="line">openjdk version <span class="string">&quot;1.8.0_212&quot;</span></span><br><span class="line">OpenJDK Runtime Environment (build 1.8.0_212-b04)</span><br><span class="line">OpenJDK 64-Bit Server VM (build 25.212-b04, mixed mode)</span><br><span class="line">root@6e90872b448b:/# java -XX:+PrintFlagsFinal | grep -E <span class="string">&#x27;InitialHeapSize|MaxHeapSize&#x27;</span></span><br><span class="line">uintx InitialHeapSize := 134217728 &#123;product&#125;</span><br><span class="line">uintx MaxHeapSize := 2147483648 &#123;product&#125;</span><br><span class="line">root@6e90872b448b:/# java -XX:+PrintFlagsFinal | grep -E ParallelGCThreads</span><br><span class="line">uintx ParallelGCThreads = 2 &#123;product&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="compare-table"><a href="#compare-table" class="headerlink" title="compare table"></a>compare table</h3><table>
+<thead>
+<tr>
+<th>env\command</th>
+<th>free -g</th>
+<th>cat &#x2F;proc&#x2F;cpuinfo</th>
+<th>jvm InitialHeapSize</th>
+<th>jvm MaxHeapSize</th>
+<th>jvm ParallelGCThreads</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>VM</td>
+<td>20G</td>
+<td>6</td>
+<td>329252864 (314M)</td>
+<td>5263851520 (4.9G)</td>
+<td>6</td>
+</tr>
+<tr>
+<td>docker (openjdk:8u181)</td>
+<td>20G</td>
+<td>6</td>
+<td>329252864</td>
+<td>5263851520</td>
+<td>6</td>
+</tr>
+<tr>
+<td>docker (openjdk:8u181) resource limit [cpu:2, memory:8G]</td>
+<td>20G</td>
+<td>6</td>
+<td>329252864</td>
+<td>5263851520</td>
+<td>6</td>
+</tr>
+<tr>
+<td>docker (openjdk:8u212)</td>
+<td>20G</td>
+<td>6</td>
+<td>329252864</td>
+<td>5263851520</td>
+<td>6</td>
+</tr>
+<tr>
+<td>docker (openjdk:8u181) resource limit [cpu:2, memory:8G]</td>
+<td>20G</td>
+<td>6</td>
+<td>134217728 (128M)</td>
+<td>2147483648 (2G)</td>
+<td>2</td>
+</tr>
+</tbody></table>
+<h3 id="conclusion"><a href="#conclusion" class="headerlink" title="conclusion"></a>conclusion</h3><ul>
+<li>openjdk:8u212 can get the resource limit in docker container</li>
+</ul>
+<h3 id="implementation"><a href="#implementation" class="headerlink" title="implementation"></a>implementation</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"> julong os::Linux::available_memory() &#123;</span><br><span class="line">   // values in struct sysinfo are &quot;unsigned long&quot;</span><br><span class="line">   struct sysinfo si;</span><br><span class="line">-  sysinfo(&amp;si);</span><br><span class="line">+  julong avail_mem;</span><br><span class="line"> </span><br><span class="line">-  return (julong)si.freeram * si.mem_unit;</span><br><span class="line">+  if (OSContainer::is_containerized()) &#123;</span><br><span class="line">+    jlong mem_limit, mem_usage;</span><br><span class="line">+    if ((mem_limit = OSContainer::memory_limit_in_bytes()) &gt; 0) &#123;</span><br><span class="line">+      if ((mem_usage = OSContainer::memory_usage_in_bytes()) &gt; 0) &#123;</span><br><span class="line">+        if (mem_limit &gt; mem_usage) &#123;</span><br><span class="line">+          avail_mem = (julong)mem_limit - (julong)mem_usage;</span><br><span class="line">+        &#125; else &#123;</span><br><span class="line">+          avail_mem = 0;</span><br><span class="line">+        &#125;</span><br><span class="line">+        log_trace(os)(&quot;available container memory: &quot; JULONG_FORMAT, avail_mem);</span><br><span class="line">+        return avail_mem;</span><br><span class="line">+      &#125; else &#123;</span><br><span class="line">+        log_debug(os,container)(&quot;container memory usage call failed: &quot; JLONG_FORMAT, mem_usage);</span><br><span class="line">+      &#125;</span><br><span class="line">+    &#125; else &#123;</span><br><span class="line">+      log_debug(os,container)(&quot;container memory unlimited or failed: &quot; JLONG_FORMAT, mem_limit);</span><br><span class="line">+    &#125;</span><br><span class="line">+  &#125;</span><br><span class="line">+</span><br><span class="line">+  sysinfo(&amp;si);</span><br><span class="line">+  avail_mem = (julong)si.freeram * si.mem_unit;</span><br><span class="line">+  log_trace(os)(&quot;available memory: &quot; JULONG_FORMAT, avail_mem);</span><br><span class="line">+  return avail_mem;</span><br><span class="line"> &#125;</span><br><span class="line">  </span><br><span class="line"> julong os::physical_memory() &#123;</span><br><span class="line">-  return Linux::physical_memory();</span><br><span class="line">+  if (OSContainer::is_containerized()) &#123;</span><br><span class="line">+    jlong mem_limit;</span><br><span class="line">+    if ((mem_limit = OSContainer::memory_limit_in_bytes()) &gt; 0) &#123;</span><br><span class="line">+      log_trace(os)(&quot;total container memory: &quot; JLONG_FORMAT, mem_limit);</span><br><span class="line">+      return (julong)mem_limit; </span><br><span class="line">+    &#125; else &#123;</span><br><span class="line">+      if (mem_limit == OSCONTAINER_ERROR) &#123;</span><br><span class="line">+        log_debug(os,container)(&quot;container memory limit call failed&quot;);</span><br><span class="line">+      &#125;</span><br><span class="line">+      if (mem_limit == -1) &#123;</span><br><span class="line">+        log_debug(os,container)(&quot;container memory unlimited, using host value&quot;);</span><br><span class="line">+      &#125;</span><br><span class="line">+    &#125;</span><br><span class="line">+  &#125;</span><br><span class="line">+</span><br><span class="line">+  jlong phys_mem = Linux::physical_memory();</span><br><span class="line">+  log_trace(os)(&quot;total system memory: &quot; JLONG_FORMAT, phys_mem);</span><br><span class="line">+  return phys_mem;</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="link"><a href="#link" class="headerlink" title="link"></a>link</h3><p>JDK-8146115 : Improve docker container detection and resource configuration usage </p>
+<p>jira : <a target="_blank" rel="noopener" href="https://bugs.java.com/bugdatabase/view_bug.do?bug_id=JDK-8146115">https://bugs.java.com/bugdatabase/view_bug.do?bug_id&#x3D;JDK-8146115</a></p>
+<p>patch : <a target="_blank" rel="noopener" href="http://cr.openjdk.java.net/~bobv/8146115/webrev.03/open.patch">http://cr.openjdk.java.net/~bobv&#x2F;8146115&#x2F;webrev.03&#x2F;open.patch</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2019/06/13/jvm-docker/" data-id="cm6lwewro00094q9jcuc770zo" data-title="jvm improve docker container detection and resource configuration usage" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2019/10/19/kubernetes-install/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">前一篇</strong>
+      <div class="article-nav-title">
+        
+          使用kubeadm创建kubernetes单主集群 - ubuntu
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2019/05/23/distribute_theory/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">后一篇</strong>
+      <div class="article-nav-title">分布式系统相关理论</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">归档</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2022/07/">七月 2022</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/11/">十一月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/10/">十月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/06/">六月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/05/">五月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">三月 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">二月 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/09/">九月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/08/">八月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/07/">七月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/06/">六月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/05/">五月 2017</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">最新文章</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2022/07/03/flink-keygroup-dataskew/">Flink KeyGroup机制导致的数据倾斜问题</a>
+          </li>
+        
+          <li>
+            <a href="/2019/11/10/standby_gc/">生产环镜Standby NameNode GC严重问题记录</a>
+          </li>
+        
+          <li>
+            <a href="/2019/10/19/kubernetes-install/">使用kubeadm创建kubernetes单主集群 - ubuntu</a>
+          </li>
+        
+          <li>
+            <a href="/2019/06/13/jvm-docker/">jvm improve docker container detection and resource configuration usage</a>
+          </li>
+        
+          <li>
+            <a href="/2019/05/23/distribute_theory/">分布式系统相关理论</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2025 Bamboo Liu<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>

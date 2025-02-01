@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>JVM 简介 | Bamboo Liu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="前言为了达到给所有硬件提供一致的虚拟机平台的目的，jvm牺牲了一些与硬件相关的性能特性。 第一章 走进java 2006年，Sun公式宣布最终会将java开源，并建立了OpenJDK组织源码进行独立管理。除了极少数产权代码（Sun本身也无权进行开源处理）外，OpenJDK几乎包括了Sun JDK的全部代码。所以OpenJDK 7 与 Sun JDK 1.7本质史昂就是同一套代码库开发的产品  历史">
+<meta property="og:type" content="article">
+<meta property="og:title" content="JVM 简介">
+<meta property="og:url" content="http://example.com/2017/07/08/jvm/index.html">
+<meta property="og:site_name" content="Bamboo Liu">
+<meta property="og:description" content="前言为了达到给所有硬件提供一致的虚拟机平台的目的，jvm牺牲了一些与硬件相关的性能特性。 第一章 走进java 2006年，Sun公式宣布最终会将java开源，并建立了OpenJDK组织源码进行独立管理。除了极少数产权代码（Sun本身也无权进行开源处理）外，OpenJDK几乎包括了Sun JDK的全部代码。所以OpenJDK 7 与 Sun JDK 1.7本质史昂就是同一套代码库开发的产品  历史">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2017-07-07T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-02-01T07:54:30.586Z">
+<meta property="article:author" content="Bamboo Liu">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/atom.xml" title="Bamboo Liu" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Bamboo Liu</a>
+      </h1>
+      
+        <h2 id="subtitle-wrap">
+          <a href="/" id="subtitle">A blog of learn, reading, thinking, AI...</a>
+        </h2>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/atom.xml" title="RSS 订阅"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="搜索"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="搜索"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://example.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main"><article id="post-jvm" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2017/07/08/jvm/" class="article-date">
+  <time class="dt-published" datetime="2017-07-07T16:00:00.000Z" itemprop="datePublished">2017-07-08</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="p-name article-title" itemprop="headline name">
+      JVM 简介
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>为了达到给所有硬件提供一致的虚拟机平台的目的，jvm牺牲了一些与硬件相关的性能特性。</p>
+<h1 id="第一章-走进java"><a href="#第一章-走进java" class="headerlink" title="第一章 走进java"></a>第一章 走进java</h1><blockquote>
+<p>2006年，Sun公式宣布最终会将java开源，并建立了OpenJDK组织源码进行独立管理。<br>除了极少数产权代码（Sun本身也无权进行开源处理）外，OpenJDK几乎包括了Sun JDK的全部代码。<br>所以OpenJDK 7 与 Sun JDK 1.7本质史昂就是同一套代码库开发的产品</p>
+</blockquote>
+<h3 id="历史"><a href="#历史" class="headerlink" title="历史"></a>历史</h3><ol>
+<li><p>1996年，sun发布jdk1.0，该jdk中所带的虚拟机就是Classic VM. 这款虚拟机采用纯解释权方式来执行java代码，若用jit编译器，就必须外挂。使用外挂jit编译器后，解释器便不再工作。<br>若用解释器，解释器的性能本来就比较慢。<br>若用编译器，编译器需要对每一行代码都进行编译，由于程序相应时间的压力，不敢应用编译耗时较高的优化技术。<br>由此，“java语言很慢”的形象产生</p>
+</li>
+<li><p>jdk 1.2时，在Solaris平台发布了Exact VM.<br>使用了准确式内存管理（虚拟机可以知道内存中某个位置的数据具体是什么类型）。<br>之前Class VM基于handler（句柄）的对象查找方式，每次定位对象多了一次查找开销</p>
+</li>
+<li><p>HotSpot VM：准确式内存管理，热点代码探测技术<br>Sun JDK，Open JDK都是使用HotSpot VM</p>
+</li>
+<li><p>Dalvik VM，即android上使用的jvm。<br>严格来说，Dalvik VM不是一个java虚拟机；<br>它没有遵循java虚拟机规范，不能直接执行java的class文件;<br>使用的是寄存器架构而不是jvm中常用的栈架构</p>
+</li>
+<li><p>Microsoft JVM<br>微软曾是java技术铁杆支持者，与sun争夺java控制权，令java从跨平台技术变为绑定在windows上的技术是ms的主要目的。<br>sun起诉微软，微软最终败诉，赔偿sun公司2000万，承诺终止其jvm发展。<br>有趣的是，xp sp3完全抹去了jvm，sun又登报希望微软不要这么做</p>
+</li>
+</ol>
+<h3 id="未来"><a href="#未来" class="headerlink" title="未来"></a>未来</h3><ul>
+<li>模块化</li>
+<li>混合语言（java平台上多语言很合编程正成为主流）</li>
+<li>多核并行（函数式）</li>
+<li>进一步丰富语法</li>
+<li>64位虚拟机</li>
+</ul>
+<span id="more"></span>
+
+<p>由于指针膨胀和各种数据类型对齐补白的原因，运行在64位系统上的java应用，通常比32位系统额外增加10% - 30%的内存消耗；<br>多个机构测试显示，64为虚拟机运行速度在各个测试项中几乎全面落后32位虚拟机，两者大约15%左右的性能差距。<br>32位有个严重的限制：内存不超过4GB；<br>因此，很多企业使用虚拟机集群等方式继续在32位系统中运行。</p>
+<p>计算机最终会完全过渡到64位，jvm也会从32位发展至64位</p>
+<h3 id="其他"><a href="#其他" class="headerlink" title="其他"></a>其他</h3><p>函数式编程的一个重要优点：程序天然地适合并行运行</p>
+<h1 id="第二章-java内存区域与内存溢出异常"><a href="#第二章-java内存区域与内存溢出异常" class="headerlink" title="第二章 java内存区域与内存溢出异常"></a>第二章 java内存区域与内存溢出异常</h1><h2 id="运行时数据区"><a href="#运行时数据区" class="headerlink" title="运行时数据区"></a>运行时数据区</h2><ul>
+<li>方法区</li>
+<li>堆</li>
+<li>虚拟机栈</li>
+<li>本地方法栈</li>
+<li>程序计数器PC</li>
+</ul>
+<p>方法区，堆 ：线程共享<br>栈，pc ： 线程私有<br>本地方法栈中方式使用的语言，使用方式，数据结构并未强制规定，jvm可以自由实现它。（Sun HotSpot 直接把本地方法栈和虚拟机栈合二为一）</p>
+<h3 id="程序计数器"><a href="#程序计数器" class="headerlink" title="程序计数器"></a>程序计数器</h3><p>每个线程都有一个独立了的PC，<br>若正在执行java方法，则PC记录的是正在执行的虚拟机字节码指令地址；<br>若正在执行native方法，则PC值为空。<br>此内存区域是唯一一个在jvm中不可能发生OutOfMemoryError的区域</p>
+<h3 id="java虚拟机栈"><a href="#java虚拟机栈" class="headerlink" title="java虚拟机栈"></a>java虚拟机栈</h3><p>栈中包括了局部变量表<br>局部变量表存放了编译器可知的各种基本数据类型，对象引用，returnAddress类型</p>
+<h3 id="本地方法栈"><a href="#本地方法栈" class="headerlink" title="本地方法栈"></a>本地方法栈</h3><p>native 方法</p>
+<h3 id="java堆"><a href="#java堆" class="headerlink" title="java堆"></a>java堆</h3><p>jvm所管理内存中最大的一块.</p>
+<p>堆的唯一目的: 存放对象实例，几乎所有的对象实例都在这里分配内存（jvm规范说，所有的对象实例以及数组都要在堆上分配，但随着jit的发展，栈上分配，标量替换等优化技术，打破了这个限制）</p>
+<p>从内存分配角度看，线程共享的java堆中可能划分出多个线程私有的分配缓冲区（Thread Local Allocation Buffer, TLAB）</p>
+<p>从内存回收角度，java堆还可以细分</p>
+<ul>
+<li>新生代（eden， from， to）</li>
+<li>老年代</li>
+</ul>
+<p>不论如何划分，都与存放内容无关<br>无论哪个区域，存储的都仍然是对象实例</p>
+<p>java堆可以位于物理上不连续的内存空间，只要逻辑上连续即可</p>
+<h3 id="方法区"><a href="#方法区" class="headerlink" title="方法区"></a>方法区</h3><p>存储虚拟机加载的类信息，常量，静态变量，jit编译后的代码等数据</p>
+<p>习惯上，称作“永久代”，但并不等价。<br>HotSpot把gc分代扩展至方法区，或者说使用永久代来实现方法区。<br>对其它JVM，并不存在永久代的概念</p>
+<p>如何实现方法区，不收虚拟机规范约束，用永久代来实现，不是个好主意，永久代很容易内存溢出</p>
+<p>方法区主要是针对常量池的回收和对类型的卸载。该区域回收性能较差，尤其是对类型的卸载，条件相当苛刻</p>
+<h3 id="运行时常量池"><a href="#运行时常量池" class="headerlink" title="运行时常量池"></a>运行时常量池</h3><p>方法区的一部分。</p>
+<p>class文件中，包含了常量池信息，用于存放编译器生成的各种字面量和符号引用，这部分内容在类加载后进入方法区的运行时常量池中存放。</p>
+<p>常量池中的内容：编译器产生，也可能运行期产生</p>
+<h3 id="直接内存"><a href="#直接内存" class="headerlink" title="直接内存"></a>直接内存</h3><p>并不是虚拟机的一部分，收到本机总内存（RAM+swap）空间的限制。</p>
+<h3 id="其他-1"><a href="#其他-1" class="headerlink" title="其他"></a>其他</h3><p>StackOverflowError</p>
+<ul>
+<li>线程请求的栈深度大于虚拟机所允许的深度</li>
+</ul>
+<p>OutOfMemoryError</p>
+<ul>
+<li>虚拟机栈扩展时，无法申请到足够的内存</li>
+<li>对中没有内存完成实例分配，并且堆也无法再扩展</li>
+<li>方法区无法满足内存分配需求</li>
+</ul>
+<h2 id="hotspot虚拟机对象"><a href="#hotspot虚拟机对象" class="headerlink" title="hotspot虚拟机对象"></a>hotspot虚拟机对象</h2><h3 id="对象创建"><a href="#对象创建" class="headerlink" title="对象创建"></a>对象创建</h3><p>虚拟机遇到new指令时，检查该指令的参数能否在常量池中定位到一个类的符号引用，并检查这个符号引用的类是否已被加载，解析和初始化过。若没有，则先执行相应的类加载过程。</p>
+<p>类加载检查通过后，将为新生对象分配内存。</p>
+<p>对象所需内存大小在类加载完成后便可完全确定。</p>
+<p>若java堆中内存是规整的，使用“指针碰撞”方式为对象分配内存空间；若不是，使用“空闲列表的”内存分配方式。<br>堆是否规整，由其采用的垃圾回收算法决定。</p>
+<h5 id="多线程问题"><a href="#多线程问题" class="headerlink" title="多线程问题"></a>多线程问题</h5><p>给A分配内存，指针未来得及修改，对象B又同时使用了原来的指针来分配内存。解决这个问题有两种方案：</p>
+<ul>
+<li>分配内存空间的动作进行同步处理。（虚拟机使用CAS配上失败重试的方式保证更新操作的原子性）</li>
+<li>把内存分配的动作按照线程划分在不同的空间之中进行。即内个线程在java堆中预先分配一小块内存（本地线程分配缓冲TLAB）。</li>
+<li>通过-XX+&#x2F;-UseTLAB来设定是否使用TLAB</li>
+</ul>
+<p>内存分配完成后，虚拟机需要将分配到的内存空间都初始化为零值（不包括对象头）。<br>这一步操作保证了java代码中可以不赋初始值就可直接使用。</p>
+<p>接下来，虚拟机要对对象进行必要的设置，（对象是哪个类的实例，如何找到类的元数据信息，对象哈希码，对象的GC分代年龄等信息），这些信息存储在对象头之中。</p>
+<p>从虚拟机角度来讲，此时对象就产生了。从java程序视角看，对象创建才刚刚开始<init>方法还没有执行。<br>执行new指令后，会执行init方法，按照程序员的意愿初始化对象。此时，创建对象完成。</p>
+<h3 id="对象内存布局"><a href="#对象内存布局" class="headerlink" title="对象内存布局"></a>对象内存布局</h3><ul>
+<li>对象头</li>
+<li>实例数据</li>
+<li>对齐填充</li>
+</ul>
+<p>对象头：</p>
+<ul>
+<li>对象运行时数据：哈希码，gc分代年龄，锁状态标志，线程持有的锁，偏向线程id，，偏向时间戳等。<br>32bit或64bit，官方称作“Mark Word”</li>
+<li>类型指针，指向类元数据的指针。虚拟机通过此指针确定对象是哪个类的实例。</li>
+</ul>
+<p>实例数据：</p>
+<ul>
+<li>对象真正存储的有效信息</li>
+<li>从父类继承的，子类定义的。都会记录下来。</li>
+<li>存储顺序受到虚拟机分配策略参数和字段在java源码中定义顺序的影响</li>
+<li>hotspot默认分配策略：longs&#x2F;doubles、ints、shorts、chars、bytes、booleans、oops（ordinary object pointers），相同宽带的字段总是分配到一起。在满足此前提的情况下，父类中的变量会出现在子类之前。</li>
+<li>若CompactFields参数设为true，默认为true，则子类中较窄的变量也可能会插入到父类变量的空隙之中。</li>
+</ul>
+<p>对齐填充</p>
+<ul>
+<li>仅起到占位符的作用。hotspot要求对象qi’shi起始地址必须是8字节的整数倍。即对象大小必须是8的整数倍。</li>
+</ul>
+<h3 id="对象的访问定位"><a href="#对象的访问定位" class="headerlink" title="对象的访问定位"></a>对象的访问定位</h3><ul>
+<li>句柄</li>
+<li>直接指针（hotspot使用的方式）</li>
+</ul>
+<p>句柄：</p>
+<ul>
+<li>java堆中需要划分一块内存来作为句柄池。</li>
+<li>对象指针reference中存储的是对象句柄地址</li>
+<li>句柄中包含对象实例数据与类型数据两个地址</li>
+<li>对象移动时，只改变句柄中的实例数据指针，reference本身不需要修改</li>
+</ul>
+<p>直接指针：</p>
+<ul>
+<li>reference存储的是对象的真实地址</li>
+<li>java堆对象中需要考虑放置类型数据的相关信息</li>
+<li>速度更快，节省了一次指针定位开销。由于对象访问非常频繁，这类开销也不小</li>
+</ul>
+<h2 id="其他-2"><a href="#其他-2" class="headerlink" title="其他"></a>其他</h2><p>EMA：eclipse memory analyzer：分析dump出的堆转储快照</p>
+<p>String.intern()<br>jdk1.6及以前，该方法会将首次遇到的字符串复制到永久代中，返回的也是永久代中这个字符串实例的引用。<br>jdk1.7以后，不会再复制实例，只是在常量池中记录首次出现的实例引用</p>
+<h1 id="第三章-垃圾收集器与内存分配策略"><a href="#第三章-垃圾收集器与内存分配策略" class="headerlink" title="第三章 垃圾收集器与内存分配策略"></a>第三章 垃圾收集器与内存分配策略</h1><p>程序计数器，虚拟机栈，本地方法栈：随线程生，随线程灭。<br>这些区域不需要过多考虑回收问题。</p>
+<p>垃圾收集器主要关注的是堆和方法区。</p>
+<h3 id="对象存活检测算法"><a href="#对象存活检测算法" class="headerlink" title="对象存活检测算法"></a>对象存活检测算法</h3><ul>
+<li>引用计数 ：无法解决循环引用问题</li>
+<li>可达性分析算法：以gc roots的对象作为起始点，向下搜索。</li>
+</ul>
+<p>GC roots：</p>
+<ul>
+<li>虚拟机栈</li>
+<li>方法区中静态属性引用的对象</li>
+<li>方法区中常量引用的对象</li>
+<li>本地方法栈中JNI引用的对象</li>
+</ul>
+<p>引用分类：</p>
+<ul>
+<li>强引用，默认。引用存在时，不会回收</li>
+<li>软引用。描述还有用但是非必需的对象。内存溢出之前，进行回收</li>
+<li>弱引用。使用WeakReference类来实现。生命周期在xia下一次垃圾收集之前。</li>
+<li>虚引用。使用PhantonReference类来实现。</li>
+</ul>
+<p>不可达的对象，也并非“非死不可”。在finalize（）方法中，可以把this参数赋值给某个变量，就保存下了引用。</p>
+<h3 id="回收方法区"><a href="#回收方法区" class="headerlink" title="回收方法区"></a>回收方法区</h3><p>主要回收废弃常量和无用的类。</p>
+<p>回收类，条件相当苛刻：</p>
+<ul>
+<li>不存在类的实例</li>
+<li>类的classloader已回收</li>
+<li>class对象没有被引用，没有通过反射访问该类的方法</li>
+</ul>
+<p>即使满足以上条件，进说明类对象“可以回收”，但也不一定会回收</p>
+<h3 id="GC算法"><a href="#GC算法" class="headerlink" title="GC算法"></a>GC算法</h3><ul>
+<li>标记-清除算法：标记和清除的效率都不高；产生内存碎片</li>
+<li>复制算法：实现简单，运行高效。需要额外内存空间进行担保，内存利用率低，浪费50%空间</li>
+<li>标记-整理算法：先标记，后整理，较少内存碎片问题</li>
+<li>分代收集算法</li>
+</ul>
+<h3 id="HotSpot的算法实现"><a href="#HotSpot的算法实现" class="headerlink" title="HotSpot的算法实现"></a>HotSpot的算法实现</h3><p>枚举根节点</p>
+<ul>
+<li>使用可达性分析方法，时间消耗很大，并且会产生gc停顿。</li>
+<li>可达性分析需要确保一致性，分析过程中不可以出现引用关系变化的情况，因此gc时会暂停所有java执行线程，即stop the world.</li>
+<li>java虚拟机基本都采用准确是gc，虚拟机有办法直接得知哪些地方存放着对象引用。</li>
+<li>hotspot的实现中，使用OopMap的数据结构记录引用信息。可以快速完成gc roots的枚举</li>
+</ul>
+<p>安全点</p>
+<ul>
+<li>hotspot并没有为每条指令都生成OopMap（过于占用空间），只在特定位置记录了这些信息，这些位置称为“安全点”</li>
+<li>程序在运行时，只有到达安全点是才能停顿下来，执行gc</li>
+</ul>
+<p>安全区域</p>
+<ul>
+<li>sleep状态的线程，无法到达安全点。无法gc，需要安全区域来解决</li>
+<li>安全区域位于一段代码之中，引用关系不会发生变化，在此区域任何地方开始gc都是安全的</li>
+</ul>
+<h3 id="垃圾收集器"><a href="#垃圾收集器" class="headerlink" title="垃圾收集器"></a>垃圾收集器</h3><ul>
+<li>Serial收集器。单线程收集，gc是暂停其他所有线程。效率高。client模式下虚拟机的默认新生代收集器。client模式，内存一般100M左右，不会太大，延迟不到100ms，基本可接受。</li>
+<li>ParNew收集器。Serial的多线程版本。使用多个线程执行gc。stop the world。其他与Serial类似。运行在server模式下首选的新生代收集器，主要是因为只有它能与VMS收集器配合工作。单cpu时，比serial要差，适合多cpu环镜</li>
+<li>Parallel Scavenge。关注点在吞吐量，而不是减小stop world时间。吞吐量&#x3D;运行用户线程时间&#x2F;(用户线程+gc线程)</li>
+<li>Serial Old 收集器。Serial收集器的老年代版本。单线程，标记-整理算法。client模式下使用</li>
+<li>Parallel Old收集器。parallel老年代版本，标记-整理算法。</li>
+<li>CMS收集器。以获取最短回收停顿时间为目标。标记-清除算法。</li>
+<li>G1收集器。gc技术最前沿成果。面向服务器。hotspot希望未来它可替换CMS。</li>
+</ul>
+<h3 id="CMS"><a href="#CMS" class="headerlink" title="CMS"></a>CMS</h3><p>工作步骤：</p>
+<ol>
+<li>初始标记。stop world，但会很快</li>
+<li>并发标记。stop world,很快</li>
+<li>重新标记</li>
+<li>并发清除</li>
+</ol>
+<p>优点：并发手机，低停顿<br>缺点：对cpu资源敏感，（少于4核时，性能慢）。内存碎片（标记-清除算法）。无法处理浮动垃圾。</p>
+<h3 id="其他-3"><a href="#其他-3" class="headerlink" title="其他"></a>其他</h3><p>并发和并行<br>gc并行：多个gc线程并行工作，用户线程等待<br>gc并发：用户线程，gc线程同时执行（不一定并行，可能交替执行）</p>
+<p>新生代GC（Minor GC）：频繁，快速<br>老年代GC（Major GC&#x2F;Full GC）：比Minor GC慢10倍左右 </p>
+<h2 id="内存分配与回收策略"><a href="#内存分配与回收策略" class="headerlink" title="内存分配与回收策略"></a>内存分配与回收策略</h2><ul>
+<li>对象优先在eden分配。eden无足够空间，触发一次Minor GC</li>
+<li>大对象直接进入老年代</li>
+<li>长期存活对象进入老年代</li>
+<li>动态对象年龄判定。虚拟机不强制必须达到年龄才能晋升老年代，survivor中相同年龄所有对象大小的综合大于survivor空间一半时，也可直接进入老年代</li>
+<li>空间分配担保</li>
+</ul>
+<h1 id="第四章-虚拟机性能监控工具与故障处理工具"><a href="#第四章-虚拟机性能监控工具与故障处理工具" class="headerlink" title="第四章 虚拟机性能监控工具与故障处理工具"></a>第四章 虚拟机性能监控工具与故障处理工具</h1><h2 id="jdk命令行工具"><a href="#jdk命令行工具" class="headerlink" title="jdk命令行工具"></a>jdk命令行工具</h2><p>大多数是jdk&#x2F;lib&#x2F;tools.jar类库的一层包装，主要功能在tools类库中实现。因此命令行工具的可执行文件大小都在27kb左右。</p>
+<ul>
+<li>jps：查看本机所有java虚拟机进程</li>
+<li>jstat：收集虚拟机各方面的运行数据</li>
+<li>jinfo：显示虚拟机配置信息</li>
+<li>jmap：生成虚拟机内存转储快照</li>
+<li>jhat：分析jmap生成的dump文件，会启一个webserver，分析内存</li>
+<li>jstack：虚拟机线程快照</li>
+<li>javap：反汇编</li>
+</ul>
+<p>jps -v : 输出虚拟机启动时的jvm参数<br>jstat -gc：监视java堆状况<br>jstat -gcutil：监视java堆，输出是占用百分比</p>
+<h2 id="jdk可视化工具"><a href="#jdk可视化工具" class="headerlink" title="jdk可视化工具"></a>jdk可视化工具</h2><ul>
+<li>jconsole</li>
+<li>VisualVM：功能强大。运行监视和故障处理。</li>
+</ul>
+<h2 id="jdk版本选择"><a href="#jdk版本选择" class="headerlink" title="jdk版本选择"></a>jdk版本选择</h2><p>版本升级也有不少性能倒退的案例，受程序，第三方包兼容性以及中间件的限制，在企业中升级jdk版本需要慎重考虑。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2017/07/08/jvm/" data-id="cm6lwewrq000a4q9j5m4q5a1b" data-title="JVM 简介" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2017/08/17/humankind-history/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">前一篇</strong>
+      <div class="article-nav-title">
+        
+          人类简史 - 读书笔记
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2017/06/01/THINKING-OF-FUN_reading_notes/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">后一篇</strong>
+      <div class="article-nav-title">思考的乐趣-读书笔记</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">归档</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2022/07/">七月 2022</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/11/">十一月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/10/">十月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/06/">六月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/05/">五月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">三月 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">二月 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/09/">九月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/08/">八月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/07/">七月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/06/">六月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/05/">五月 2017</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">最新文章</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2022/07/03/flink-keygroup-dataskew/">Flink KeyGroup机制导致的数据倾斜问题</a>
+          </li>
+        
+          <li>
+            <a href="/2019/11/10/standby_gc/">生产环镜Standby NameNode GC严重问题记录</a>
+          </li>
+        
+          <li>
+            <a href="/2019/10/19/kubernetes-install/">使用kubeadm创建kubernetes单主集群 - ubuntu</a>
+          </li>
+        
+          <li>
+            <a href="/2019/06/13/jvm-docker/">jvm improve docker container detection and resource configuration usage</a>
+          </li>
+        
+          <li>
+            <a href="/2019/05/23/distribute_theory/">分布式系统相关理论</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2025 Bamboo Liu<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>

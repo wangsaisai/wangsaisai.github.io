@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>生产环镜Standby NameNode GC严重问题记录 | Bamboo Liu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="HDFS集群正常运行了将近一年，最近两个月出现一个诡异的问题：Standby节点严重的GC，Active节点正常。虽然不影响线上业务，但潜在的问题还是比较严重的，这里简单整理下问题定位和解决过程。 一、问题描述HDFS版本：2.5.2 （问题与版本无关） HDFS的active节点正常，Standby节点严重GC 二、集群的情况：HDFS集群数据量在几百TB，Namespace和Block数量在千">
+<meta property="og:type" content="article">
+<meta property="og:title" content="生产环镜Standby NameNode GC严重问题记录">
+<meta property="og:url" content="http://example.com/2019/11/10/standby_gc/index.html">
+<meta property="og:site_name" content="Bamboo Liu">
+<meta property="og:description" content="HDFS集群正常运行了将近一年，最近两个月出现一个诡异的问题：Standby节点严重的GC，Active节点正常。虽然不影响线上业务，但潜在的问题还是比较严重的，这里简单整理下问题定位和解决过程。 一、问题描述HDFS版本：2.5.2 （问题与版本无关） HDFS的active节点正常，Standby节点严重GC 二、集群的情况：HDFS集群数据量在几百TB，Namespace和Block数量在千">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/images/jmap.png">
+<meta property="article:published_time" content="2019-11-09T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-02-01T07:54:30.587Z">
+<meta property="article:author" content="Bamboo Liu">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/images/jmap.png">
+  
+    <link rel="alternate" href="/atom.xml" title="Bamboo Liu" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Bamboo Liu</a>
+      </h1>
+      
+        <h2 id="subtitle-wrap">
+          <a href="/" id="subtitle">A blog of learn, reading, thinking, AI...</a>
+        </h2>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/atom.xml" title="RSS 订阅"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="搜索"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="搜索"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://example.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main"><article id="post-standby_gc" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2019/11/10/standby_gc/" class="article-date">
+  <time class="dt-published" datetime="2019-11-09T16:00:00.000Z" itemprop="datePublished">2019-11-10</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="p-name article-title" itemprop="headline name">
+      生产环镜Standby NameNode GC严重问题记录
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <p>HDFS集群正常运行了将近一年，最近两个月出现一个诡异的问题：Standby节点严重的GC，Active节点正常。虽然不影响线上业务，但潜在的问题还是比较严重的，这里简单整理下问题定位和解决过程。</p>
+<h1 id="一、问题描述"><a href="#一、问题描述" class="headerlink" title="一、问题描述"></a>一、问题描述</h1><p>HDFS版本：2.5.2 （问题与版本无关）</p>
+<p>HDFS的active节点正常，Standby节点严重GC</p>
+<h1 id="二、集群的情况："><a href="#二、集群的情况：" class="headerlink" title="二、集群的情况："></a>二、集群的情况：</h1><p>HDFS集群数据量在几百TB，Namespace和Block数量在千万级别，每天增长大约几十GB的数据量。Namespace和Block的信息消耗的内存会略微有部分增长，但不会发生太大变化。</p>
+<h1 id="三、问题分析"><a href="#三、问题分析" class="headerlink" title="三、问题分析"></a>三、问题分析</h1><p>问题最诡异的地方在于，Standby节点GC异常，但Active节点GC正常。</p>
+<p>HDFS的内存主要消耗是Namespace和Block信息。这些信息是常住内存的，不会发生太大变动。<br>一般来讲，Active节点的任务量要超过Standby节点，但由于内存主要消耗在Namespace和Block信息，Namespace和Block信息在Active&#x2F;Standby节点是完全一致的，所以两个节点的内存消耗应该接近，Active节点略微比Standby节点多消耗一些内存。</p>
+<span id="more"></span>
+
+<h1 id="四、问题追踪"><a href="#四、问题追踪" class="headerlink" title="四、问题追踪"></a>四、问题追踪</h1><h3 id="Checkpoint角度分析"><a href="#Checkpoint角度分析" class="headerlink" title="Checkpoint角度分析"></a>Checkpoint角度分析</h3><p>刚开始从Standby节点GC超过Active节点的角度进行分析，什么任务是Standby节点会做，而Active节点不做的? – CheckPoint，即检查点</p>
+<p><em>注：CheckPoint并不是某个时刻，而是一个操作过程。指将HDFS的fsimage和editlog进行合并的过程。详细信息，可查看下HDFS的HA实现。</em></p>
+<p>初步怀疑是做检查点时，代码上存在内存泄漏，导致了Standby严重GC。由于是生产环镜，不能远程Debug，只能通过阅读源码形式分析，效率缓慢，没有进展。</p>
+<h3 id="jvm角度分析"><a href="#jvm角度分析" class="headerlink" title="jvm角度分析"></a>jvm角度分析</h3><p>CheckPoint的思路没有进展。后来换个思路，追踪下Standby GC的详细情况。</p>
+<p>jstat，jmap等jvm相关的知识可参考笔者另一篇文章：   <a href="/2017/05/04/jvm/">《jvm 简介》</a></p>
+<p>通过打jstat发现，Standby节点fullgc频率异常，一天有几十次的fullgc，而且fullgc占用的时间很长，一次大约会使用100s的时间。另外，Standby节点fullgc过后，jvm内存使用率立刻降低。</p>
+<p>然后，开始通过打jmap进行分析。考虑到，针对Standby节点打的jmap，并不影响Active节点的正常服务，也就不影响HDFS的服务可用性，再加上该问题一直没有进展，就选择了这个方案。</p>
+<p><strong>打jmap对jvm进程影响非常大，可能导致jvm停顿。特别是对于hdfs这种内存占用较大的进程，可能会导致几分钟的停顿，所以生产环境一定要慎用。</strong></p>
+<p>笔者共打了四次jmap</p>
+<p>两个时间点：</p>
+<ol>
+<li>内存高位时，即将发生gc的时刻。</li>
+<li>刚刚gc过后</li>
+</ol>
+<p>两种jmap方式（把全部的对象和活着的对象都打印出来）：</p>
+<ol>
+<li>jmap -histo:live pid</li>
+<li>jmap -histo pid</li>
+</ol>
+<p>四次结果：</p>
+<ul>
+<li>jmap_low_all: 内存低位，所有对象</li>
+<li>jmap_low_live: 内存低位，活着对象</li>
+<li>jmap_high_all: 内存高位，所有对象</li>
+<li>jmap_high_live: 内存高位，活着对象</li>
+</ul>
+<p>分析发现，jmap_low_all，jmap_low_live，jmap_high_live三次结果接近，无太大变化；jmap_high_all与其他3此差别较大，多出来的内存大致如下：</p>
+<p><img src="/images/jmap.png" alt="图片1" title="jmap"></p>
+<p>分析发现：多出的内存主要是PersistToken对象。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">PersistToken &#123;</span><br><span class="line">  Object owner_;</span><br><span class="line">  Object renewer_;</span><br><span class="line">  Object realUser_;</span><br><span class="line">   ......</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>根据PersistToken类中的方法getOwner() getRenewer()，getRealUser()可知 ，owner_,  renewer_, realUser_ 都是String或者com.google.protobuf.ByteString类型，而LiteralByteString是com.google.protobuf.ByteString（ByteString是抽象类）的一个子类</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">LiteralByteString &#123;</span><br><span class="line">   <span class="type">byte</span>[] bytes;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">String &#123;</span><br><span class="line">    <span class="type">char</span> value[];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>所以，推测内存的增长都是因为PersistToken对象导致的。</p>
+<p>然后在分析检查点的代码</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">CheckPointer &#123;</span><br><span class="line">  <span class="keyword">void</span> <span class="title function_">doCheckpoint</span><span class="params">()</span> &#123;</span><br><span class="line">      bnImage.saveFSImageInAllDirs(backupNode.getNamesystem(), txid);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面代码，一层层看下去，会调到<br>DelegationTokenSecretManager的saveSecretManagerState()方法</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">synchronized</span> SecretManagerState <span class="title function_">saveSecretManagerState</span><span class="params">()</span> &#123;</span><br><span class="line">...</span><br><span class="line">ArrayList&lt;SecretManagerSection.PersistToken&gt; tokens = Lists</span><br><span class="line">    .newArrayListWithCapacity(currentTokens.size());</span><br><span class="line">...</span><br><span class="line"><span class="keyword">for</span> (Entry&lt;DelegationTokenIdentifier, DelegationTokenInformation&gt; e : currentTokens</span><br><span class="line">   .entrySet()) &#123;</span><br><span class="line"> <span class="type">DelegationTokenIdentifier</span> <span class="variable">id</span> <span class="operator">=</span> e.getKey();</span><br><span class="line"> SecretManagerSection.PersistToken.<span class="type">Builder</span> <span class="variable">b</span> <span class="operator">=</span> SecretManagerSection.PersistToken</span><br><span class="line">     .newBuilder().setOwner(id.getOwner().toString())</span><br><span class="line">     .setRenewer(id.getRenewer().toString())</span><br><span class="line">     .setRealUser(id.getRealUser().toString())</span><br><span class="line">     .setIssueDate(id.getIssueDate()).setMaxDate(id.getMaxDate())</span><br><span class="line">     .setSequenceNumber(id.getSequenceNumber())</span><br><span class="line">     .setMasterKeyId(id.getMasterKeyId())</span><br><span class="line">     .setExpiryDate(e.getValue().getRenewDate());</span><br><span class="line"> tokens.add(b.build());       <span class="comment">//tokens太大，所以这部分内存直接进入old区，minor gc无法回收</span></span><br><span class="line">&#125;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>通过log发现，currentTokens数量在千万级别。在做检查点时，这些tokens会转化成PersistToken,以方便将tokens序列化到fsimage中。统计下来，PersistToken会占用4-5GB的内存，这些内存超出了eden区的大小，因此会被直接存入old区，old区会快速的增长4-5GB，容易触发CMS进行回收，回收过程甚至可能导致内存不足，因此引发fullgc导致的STW（stop the world）。 检查点默认每个小时都会执行一次（可以配置成其他值），当editlog数量达到1百万时，也会触发检查点任务。周期性的检查点任务，导致了Standby节点gc严重的问题。</p>
+<p>所以，Standby节点异常的原因就是因为tokens太多了，但问题并没有结束，tokens从哪里来的，为何产生这么多token，token如何回收？</p>
+<p>tokens的来源是HDFS上层应用产生的，此处暂时不讲解这个问题（稍后笔者可能会在写篇博文进行介绍）。</p>
+<p>tokens的回收有两种方式</p>
+<ul>
+<li>一种是上层应用调用hdfs接口进行删除。</li>
+<li>一种是等待tokens自动过期，然后清除。</li>
+</ul>
+<p>tokens默认过期时间是7天，但配置文件中将相关参数调大了一万倍，7万天后才会自动清除（调大的原因是上层应用的一个bug，这个bug一时难以解决，就暂且调大了这个配置来规避这个bug）。由于集群运行了将近一年，所以tokens数量一直增长至千万级别。</p>
+<p>注：tokens相关配置，及默认值：（hdfs-site.xml）</p>
+<ul>
+<li>dfs.namenode.delegation.token.max-lifetime &#x3D; 604800000</li>
+<li>dfs.namenode.delegation.token.renew-interval &#x3D; 86400000</li>
+</ul>
+<h1 id="五、问题解决"><a href="#五、问题解决" class="headerlink" title="五、问题解决"></a>五、问题解决</h1><ul>
+<li>首先，是解决上层应用的bug</li>
+<li>然后，把tokens过期时间的参数值调整回来</li>
+<li>清理已有token。（已有的token其过期时间已经设定为7万天后，即使修改配置文件，也不会对已有token产生影响。所以，还要想办法清理已有的token）</li>
+</ul>
+<h1 id="六、经验"><a href="#六、经验" class="headerlink" title="六、经验"></a>六、经验</h1><p>回头看问题追踪的整个过程，有几点值得总结的经验：</p>
+<ol>
+<li>jvm提供了详细的工具帮助定位问题，一定要善于利用这些工具</li>
+<li>jmap要慎用。而且打jmap要选择合适的时间点。</li>
+<li>遇到问题尽量解决，规避问题要考虑潜在的风险。</li>
+<li>问题的现象与具体的原因可能存在一定距离，有必要是需要换换思路。</li>
+</ol>
+<h1 id="七、推荐阅读"><a href="#七、推荐阅读" class="headerlink" title="七、推荐阅读"></a>七、推荐阅读</h1><ol>
+<li><a target="_blank" rel="noopener" href="https://tech.meituan.com/namenode-memory-detail.html">《HDFS NameNode内存详解》</a></li>
+<li><a target="_blank" rel="noopener" href="https://tech.meituan.com/namenode.html">《HDFS NameNode内存全景》</a></li>
+<li><a href="/2017/05/04/jvm/">《jvm 简介》</a></li>
+<li><a target="_blank" rel="noopener" href="http://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-hdfs/HDFSHighAvailabilityWithNFS.html">《HDFS High Availability》</a></li>
+</ol>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2019/11/10/standby_gc/" data-id="cm6lwewrr000c4q9j5su549j2" data-title="生产环镜Standby NameNode GC严重问题记录" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2022/07/03/flink-keygroup-dataskew/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">前一篇</strong>
+      <div class="article-nav-title">
+        
+          Flink KeyGroup机制导致的数据倾斜问题
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2019/10/19/kubernetes-install/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">后一篇</strong>
+      <div class="article-nav-title">使用kubeadm创建kubernetes单主集群 - ubuntu</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">归档</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2022/07/">七月 2022</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/11/">十一月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/10/">十月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/06/">六月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/05/">五月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">三月 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">二月 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/09/">九月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/08/">八月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/07/">七月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/06/">六月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/05/">五月 2017</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">最新文章</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2022/07/03/flink-keygroup-dataskew/">Flink KeyGroup机制导致的数据倾斜问题</a>
+          </li>
+        
+          <li>
+            <a href="/2019/11/10/standby_gc/">生产环镜Standby NameNode GC严重问题记录</a>
+          </li>
+        
+          <li>
+            <a href="/2019/10/19/kubernetes-install/">使用kubeadm创建kubernetes单主集群 - ubuntu</a>
+          </li>
+        
+          <li>
+            <a href="/2019/06/13/jvm-docker/">jvm improve docker container detection and resource configuration usage</a>
+          </li>
+        
+          <li>
+            <a href="/2019/05/23/distribute_theory/">分布式系统相关理论</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2025 Bamboo Liu<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>java 9 turorial | Bamboo Liu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="JShell 交互式执行java代码  1234567891011121314151617jshell&gt; int a&#x3D;10a &#x3D;&#x3D;&gt; 10jshell&gt; a*7+5$30 &#x3D;&#x3D;&gt; 75jshell&gt; System.out.println(&quot;hello&quot;)hellojshell&gt; void method(int x, int y) &#123;">
+<meta property="og:type" content="article">
+<meta property="og:title" content="java 9 turorial">
+<meta property="og:url" content="http://example.com/2018/02/09/java-9-turorial/index.html">
+<meta property="og:site_name" content="Bamboo Liu">
+<meta property="og:description" content="JShell 交互式执行java代码  1234567891011121314151617jshell&gt; int a&#x3D;10a &#x3D;&#x3D;&gt; 10jshell&gt; a*7+5$30 &#x3D;&#x3D;&gt; 75jshell&gt; System.out.println(&quot;hello&quot;)hellojshell&gt; void method(int x, int y) &#123;">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2018-02-08T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-02-01T07:54:30.586Z">
+<meta property="article:author" content="Bamboo Liu">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/atom.xml" title="Bamboo Liu" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Bamboo Liu</a>
+      </h1>
+      
+        <h2 id="subtitle-wrap">
+          <a href="/" id="subtitle">A blog of learn, reading, thinking, AI...</a>
+        </h2>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/atom.xml" title="RSS 订阅"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="搜索"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="搜索"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://example.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main"><article id="post-java-9-turorial" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2018/02/09/java-9-turorial/" class="article-date">
+  <time class="dt-published" datetime="2018-02-08T16:00:00.000Z" itemprop="datePublished">2018-02-09</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="p-name article-title" itemprop="headline name">
+      java 9 turorial
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <h2 id="JShell"><a href="#JShell" class="headerlink" title="JShell"></a>JShell</h2><blockquote>
+<p>交互式执行java代码</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">jshell&gt; <span class="type">int</span> a=<span class="number">10</span></span><br><span class="line">a ==&gt; <span class="number">10</span></span><br><span class="line"></span><br><span class="line">jshell&gt; a*<span class="number">7</span>+<span class="number">5</span></span><br><span class="line">$<span class="number">30</span> ==&gt; <span class="number">75</span></span><br><span class="line"></span><br><span class="line">jshell&gt; System.out.println(<span class="string">&quot;hello&quot;</span>)</span><br><span class="line">hello</span><br><span class="line"></span><br><span class="line">jshell&gt; <span class="keyword">void</span> <span class="title function_">method</span><span class="params">(<span class="type">int</span> x, <span class="type">int</span> y)</span> &#123;</span><br><span class="line">   ...&gt;   System.out.println(x+y);</span><br><span class="line">   ...&gt; &#125;</span><br><span class="line">|  已修改 方法 method(<span class="type">int</span>,<span class="type">int</span>)</span><br><span class="line"></span><br><span class="line">jshell&gt; method(<span class="number">10</span>,<span class="number">20</span>);</span><br><span class="line"><span class="number">30</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<span id="more"></span>
+
+<h2 id="不可变List-Set-Map"><a href="#不可变List-Set-Map" class="headerlink" title="不可变List, Set, Map"></a>不可变List, Set, Map</h2><h4 id="Immutable-List"><a href="#Immutable-List" class="headerlink" title="Immutable List"></a>Immutable List</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">jshell&gt; <span class="type">List</span> <span class="variable">l</span> <span class="operator">=</span> List.of(<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>);</span><br><span class="line">l ==&gt; [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]</span><br><span class="line"></span><br><span class="line">jshell&gt; l.add(<span class="number">4</span>);</span><br><span class="line">|  警告:</span><br><span class="line">|  对作为原始类型java.util.List的成员的add(E)的调用未经过检查</span><br><span class="line">|  l.add(<span class="number">4</span>);</span><br><span class="line">|  ^------^</span><br><span class="line">|  java.lang.UnsupportedOperationException thrown:</span><br><span class="line">|        at ImmutableCollections.uoe (ImmutableCollections.java:<span class="number">71</span>)</span><br><span class="line">|        at ImmutableCollections$AbstractImmutableList.add (ImmutableCollections.java:<span class="number">77</span>)</span><br><span class="line">|        at (#<span class="number">36</span>:<span class="number">1</span>)</span><br></pre></td></tr></table></figure>
+
+<h4 id="Immutable-Set"><a href="#Immutable-Set" class="headerlink" title="Immutable Set"></a>Immutable Set</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">jshell&gt; <span class="type">Set</span> <span class="variable">set</span> <span class="operator">=</span> Set.of(<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>);</span><br><span class="line">set ==&gt; [<span class="number">1</span>, <span class="number">3</span>, <span class="number">2</span>]</span><br><span class="line"></span><br><span class="line">jshell&gt; set.add(<span class="number">4</span>);</span><br><span class="line">|  警告:</span><br><span class="line">|  对作为原始类型java.util.Set的成员的add(E)的调用未经过检查</span><br><span class="line">|  set.add(<span class="number">4</span>);</span><br><span class="line">|  ^--------^</span><br><span class="line">|  java.lang.UnsupportedOperationException thrown:</span><br><span class="line">|        at ImmutableCollections.uoe (ImmutableCollections.java:<span class="number">71</span>)</span><br><span class="line">|        at ImmutableCollections$AbstractImmutableSet.add (ImmutableCollections.java:<span class="number">281</span>)</span><br><span class="line">|        at (#<span class="number">38</span>:<span class="number">1</span>)</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h4 id="Immutable-Map"><a href="#Immutable-Map" class="headerlink" title="Immutable Map"></a>Immutable Map</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">jshell&gt; Map.of()</span><br><span class="line">$<span class="number">39</span> ==&gt; &#123;&#125;</span><br><span class="line"></span><br><span class="line">jshell&gt; <span class="type">Map</span> <span class="variable">map</span> <span class="operator">=</span> Map.of(<span class="number">1</span>, <span class="string">&quot;a&quot;</span>, <span class="number">2</span>, <span class="string">&quot;b&quot;</span>, <span class="number">3</span>, <span class="string">&quot;c&quot;</span>);</span><br><span class="line">map ==&gt; &#123;<span class="number">1</span>=a, <span class="number">3</span>=c, <span class="number">2</span>=b&#125;</span><br><span class="line"></span><br><span class="line">jshell&gt; map.put(<span class="number">4</span>, <span class="string">&quot;d&quot;</span>);</span><br><span class="line">|  警告:</span><br><span class="line">|  对作为原始类型java.util.Map的成员的put(K,V)的调用未经过检查</span><br><span class="line">|  map.put(<span class="number">4</span>, <span class="string">&quot;d&quot;</span>);</span><br><span class="line">|  ^-------------^</span><br><span class="line">|  java.lang.UnsupportedOperationException thrown:</span><br><span class="line">|        at ImmutableCollections.uoe (ImmutableCollections.java:<span class="number">71</span>)</span><br><span class="line">|        at ImmutableCollections$AbstractImmutableMap.put (ImmutableCollections.java:<span class="number">558</span>)</span><br><span class="line">|        at (#<span class="number">41</span>:<span class="number">1</span>)</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="接口私有方法-Private-Method-in-interface"><a href="#接口私有方法-Private-Method-in-interface" class="headerlink" title="接口私有方法 Private Method in interface"></a>接口私有方法 Private Method in interface</h2><p>com.interfaces.PrivateMethod</p>
+<h2 id="模块化-Module-System"><a href="#模块化-Module-System" class="headerlink" title="模块化 Module System"></a>模块化 Module System</h2><ul>
+<li>com.hello</li>
+<li>com.hello.client</li>
+</ul>
+<h2 id="Process-API"><a href="#Process-API" class="headerlink" title="Process API"></a>Process API</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">jshell&gt; <span class="type">ProcessHandle</span> <span class="variable">currentProcess</span> <span class="operator">=</span> ProcessHandle.current();</span><br><span class="line">currentProcess ==&gt; <span class="number">3214</span></span><br><span class="line"></span><br><span class="line">jshell&gt; System.out.println(<span class="string">&quot;Current Process Id: = &quot;</span> + currentProcess.pid());</span><br><span class="line">Current Process Id: = <span class="number">3214</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="资源对象的try-catch"><a href="#资源对象的try-catch" class="headerlink" title="资源对象的try&#x2F;catch"></a>资源对象的try&#x2F;catch</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">jshell&gt; <span class="keyword">void</span> <span class="title function_">tryResource</span><span class="params">()</span> <span class="keyword">throws</span> IOException &#123;</span><br><span class="line">   ...&gt;   <span class="type">BufferedReader</span> <span class="variable">reader1</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">BufferedReader</span>(<span class="keyword">new</span> <span class="title class_">FileReader</span>(<span class="string">&quot;/tmp/a.txt&quot;</span>));</span><br><span class="line">   ...&gt;   <span class="keyword">try</span> (reader1) &#123;</span><br><span class="line">   ...&gt;     System.out.println(reader1.readLine());</span><br><span class="line">   ...&gt;   &#125;</span><br><span class="line">   ...&gt; &#125;</span><br><span class="line">|  已修改 方法 tryResource()</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="Stream-api-improvements"><a href="#Stream-api-improvements" class="headerlink" title="Stream api improvements"></a>Stream api improvements</h2><p>com.stream.StreamTest</p>
+<h2 id="optional"><a href="#optional" class="headerlink" title="optional"></a>optional</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">jshell&gt; Optional.of(<span class="number">1</span>)</span><br><span class="line">$<span class="number">46</span> ==&gt; Optional[<span class="number">1</span>]</span><br><span class="line"></span><br><span class="line">jshell&gt; Optional.empty();</span><br><span class="line">$<span class="number">47</span> ==&gt; Optional.empty</span><br><span class="line"></span><br><span class="line">jshell&gt; Optional.of(<span class="number">1</span>).ifPresentOrElse(x -&gt; System.out.println(<span class="string">&quot;get:&quot;</span> + x), () -&gt; System.out.println(<span class="string">&quot;cannot get&quot;</span>))</span><br><span class="line">get:<span class="number">1</span></span><br><span class="line"></span><br><span class="line">jshell&gt; Optional.empty().ifPresentOrElse(x -&gt; System.out.println(<span class="string">&quot;get:&quot;</span> + x), () -&gt; System.out.println(<span class="string">&quot;cannot get&quot;</span>))</span><br><span class="line">cannot get</span><br><span class="line"></span><br><span class="line">jshell&gt; Optional.empty().or(() -&gt; Optional.of(<span class="number">2</span>))</span><br><span class="line">$<span class="number">50</span> ==&gt; Optional[<span class="number">2</span>]</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="HTTP-2-Client-API"><a href="#HTTP-2-Client-API" class="headerlink" title="HTTP 2 Client API"></a>HTTP 2 Client API</h2><p>api改进<br>支持web socket 等</p>
+<h2 id="GC"><a href="#GC" class="headerlink" title="GC"></a>GC</h2><ul>
+<li>CMS垃圾回收算法不再推荐使用; 推荐性能更好的G1算法</li>
+<li>GC算法之间的绑定关系被取消</li>
+</ul>
+<h2 id="other"><a href="#other" class="headerlink" title="other"></a>other</h2><p>java docs改进</p>
+<h2 id="源代码"><a href="#源代码" class="headerlink" title="源代码"></a>源代码</h2><p>本文全部源代码：<a target="_blank" rel="noopener" href="https://github.com/wangsaisai/java-9-tutorial.git">https://github.com/wangsaisai/java-9-tutorial.git</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2018/02/09/java-9-turorial/" data-id="cm6lwewrn00084q9j86nib86d" data-title="java 9 turorial" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/03/18/Stephen_William_Hawking/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">前一篇</strong>
+      <div class="article-nav-title">
+        
+          《大设计》读书笔记 -- 致敬霍金
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2017/09/05/Intelligent-Age/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">后一篇</strong>
+      <div class="article-nav-title">智能时代</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">归档</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2022/07/">七月 2022</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/11/">十一月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/10/">十月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/06/">六月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/05/">五月 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/03/">三月 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">二月 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/09/">九月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/08/">八月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/07/">七月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/06/">六月 2017</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/05/">五月 2017</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">最新文章</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2022/07/03/flink-keygroup-dataskew/">Flink KeyGroup机制导致的数据倾斜问题</a>
+          </li>
+        
+          <li>
+            <a href="/2019/11/10/standby_gc/">生产环镜Standby NameNode GC严重问题记录</a>
+          </li>
+        
+          <li>
+            <a href="/2019/10/19/kubernetes-install/">使用kubeadm创建kubernetes单主集群 - ubuntu</a>
+          </li>
+        
+          <li>
+            <a href="/2019/06/13/jvm-docker/">jvm improve docker container detection and resource configuration usage</a>
+          </li>
+        
+          <li>
+            <a href="/2019/05/23/distribute_theory/">分布式系统相关理论</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2025 Bamboo Liu<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>
